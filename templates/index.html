@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三山岛观星选址系统 - 探索星空之美</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        :root {
+            /* LeetCode Dark Theme Inspired Colors */
+            --lc-bg: #1a1a1a;
+            --lc-card-bg: #282828;
+            --lc-card-hover: #323232;
+            --lc-text-main: #eff1f6;
+            --lc-text-sub: #8a8a8a;
+            --lc-primary: #ffa116; /* LeetCode Orange */
+            --lc-accent: #0a84ff; /* LeetCode Blue */
+            --lc-success: #2cbb5d;
+            --lc-warning: #ffc01e;
+            --lc-danger: #ef4743;
+            --lc-border: #3e3e3e;
+            --lc-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            --lc-radius: 8px;
+            --lc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--lc-font);
+            background-color: var(--lc-bg);
+            min-height: 100vh;
+            color: var(--lc-text-main);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* LeetCode风格卡片通用样式 */
+        .hydro-card {
+            background: var(--lc-card-bg);
+            border-radius: var(--lc-radius);
+            box-shadow: var(--lc-shadow);
+            margin-bottom: 20px;
+            padding: 24px;
+            border: 1px solid transparent; /* LeetCode cards usually don't have borders in dark mode, or very subtle */
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            color: var(--lc-text-main);
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 1em;
+            color: var(--lc-text-sub);
+            font-weight: 400;
+        }
+
+        /* 系统信息卡片组 */
+        .system-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-card {
+            background: var(--lc-card-bg);
+            padding: 20px;
+            border-radius: var(--lc-radius);
+            box-shadow: var(--lc-shadow);
+            text-align: center;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+
+        .info-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            background: var(--lc-card-hover);
+        }
+
+        .info-card h3 {
+            font-size: 0.85em;
+            color: var(--lc-text-sub);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .info-card .value {
+            font-size: 1.8em;
+            font-weight: 600;
+            color: var(--lc-text-main); /* LeetCode uses white for numbers usually */
+        }
+
+        /* 天气卡片样式 */
+        .weather-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 24px;
+        }
+
+        .weather-card {
+            background: var(--lc-card-bg);
+            padding: 15px;
+            border-radius: var(--lc-radius);
+            border: 1px solid var(--lc-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .weather-card i {
+            font-size: 1.5em;
+            margin-bottom: 8px;
+            color: var(--lc-primary);
+        }
+
+        .weather-card .label {
+            font-size: 0.85em;
+            color: var(--lc-text-sub);
+            margin-bottom: 4px;
+        }
+
+        .weather-card .data {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--lc-text-main);
+        }
+
+        .condition-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        /* 观测点列表 */
+        .points-list {
+            background: var(--lc-card-bg);
+            border-radius: var(--lc-radius);
+            box-shadow: var(--lc-shadow);
+            margin-bottom: 24px;
+            padding: 24px;
+        }
+
+        .points-list h2 {
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--lc-border);
+            color: var(--lc-text-main);
+            font-weight: 600;
+        }
+
+        .points-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        /* 地图容器样式 */
+        #map-container {
+            height: 400px;
+            width: 100%;
+            border-radius: var(--lc-radius);
+            margin-bottom: 20px;
+            z-index: 1;
+            border: 1px solid var(--lc-border);
+        }
+
+        .point-item {
+            background: var(--lc-card-bg);
+            padding: 20px;
+            border-radius: var(--lc-radius);
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: var(--lc-shadow);
+        }
+
+        .point-item:hover {
+            background: var(--lc-card-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .point-item h3 {
+            color: var(--lc-text-main);
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .point-item p {
+            font-size: 0.9em;
+            color: var(--lc-text-sub);
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .point-item p i {
+            width: 16px;
+            text-align: center;
+            color: var(--lc-text-sub);
+        }
+
+        /* 搜索区域 */
+        .search-section {
+            background: var(--lc-card-bg);
+            border-radius: var(--lc-radius);
+            box-shadow: var(--lc-shadow);
+            margin-bottom: 24px;
+            padding: 24px;
+        }
+
+        .time-selector {
+            background: var(--lc-bg);
+            padding: 16px;
+            border-radius: var(--lc-radius);
+            margin-bottom: 20px;
+            border: 1px solid var(--lc-border);
+        }
+
+        .time-selector h3 {
+            font-size: 1em;
+            color: var(--lc-text-main);
+            margin-bottom: 15px;
+            border-bottom: 1px solid var(--lc-border);
+            padding-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .time-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .time-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: var(--lc-text-sub);
+        }
+
+        /* 输入框和按钮 */
+        input[type="text"], 
+        input[type="datetime-local"] {
+            background: var(--lc-bg);
+            border: 1px solid var(--lc-border);
+            color: var(--lc-text-main);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus, 
+        input[type="datetime-local"]:focus {
+            border-color: var(--lc-primary);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 10px 15px;
+        }
+
+        .btn {
+            background: var(--lc-bg);
+            color: var(--lc-text-main);
+            border: 1px solid var(--lc-border);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: none;
+        }
+
+        .btn:hover {
+            background: var(--lc-card-hover);
+            border-color: var(--lc-text-sub);
+        }
+        
+        /* Primary Button Style */
+        .btn-primary, #updateTimeBtn, #refreshBtn {
+            background: var(--lc-primary);
+            color: #fff; /* Orange bg needs white text */
+            border: none;
+        }
+        
+        .btn-primary:hover, #updateTimeBtn:hover, #refreshBtn:hover {
+            background: #e59113; /* Darker orange */
+            border: none;
+        }
+
+        #resetTimeBtn {
+            background: var(--lc-bg);
+            border: 1px solid var(--lc-border);
+        }
+        #resetTimeBtn:hover {
+            background: var(--lc-card-hover);
+        }
+
+        /* 星星列表 */
+        .visible-stars-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .star-card {
+            background: var(--lc-bg);
+            border: 1px solid var(--lc-border);
+            border-radius: var(--lc-radius);
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .star-card:hover {
+            border-color: var(--lc-primary);
+            background: var(--lc-card-hover);
+        }
+
+        .star-card.planet {
+            border-left: 3px solid var(--lc-warning);
+        }
+
+        .star-name {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: var(--lc-text-main);
+            margin-bottom: 4px;
+        }
+
+        .star-name-en {
+            font-size: 0.85em;
+            color: var(--lc-text-sub);
+            margin-bottom: 10px;
+        }
+
+        .star-details {
+            font-size: 0.85em;
+            color: var(--lc-text-sub);
+            line-height: 1.6;
+        }
+
+        .star-altitude {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            background: var(--lc-bg);
+        }
+
+        /* 覆盖之前的渐变背景，使用纯色标签 */
+        .star-altitude[style*="10b981"] { /* 最佳观测 */
+            background: rgba(44, 187, 93, 0.15) !important;
+            color: var(--lc-success);
+            border: none;
+        }
+        .star-altitude[style*="3b82f6"] { /* 可见 */
+            background: rgba(10, 132, 255, 0.15) !important;
+            color: var(--lc-accent);
+            border: none;
+        }
+        .star-altitude[style*="f59e0b"] { /* 地平线附近 */
+            background: rgba(255, 192, 30, 0.15) !important;
+            color: var(--lc-warning);
+            border: none;
+        }
+
+        /* 加载和错误状态 */
+        .loading, .error {
+            text-align: center;
+            padding: 40px;
+            color: var(--lc-text-sub);
+            background: var(--lc-card-bg);
+            border-radius: var(--lc-radius);
+        }
+
+        .compass {
+            font-size: 2em;
+            margin-bottom: 10px;
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            h1 { font-size: 1.8em; }
+            .search-box { flex-direction: column; }
+            .time-controls { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>✨ 三山岛观星选址系统</h1>
+            <p class="subtitle"><i class="fas fa-users"></i> 王晟瑄 崔行骥 赵泊钧 赵周麟 严以正 潘彦宏</p>
+        </header>
+
+        <div class="system-info">
+            <div class="info-card">
+                <h3><i class="fas fa-map-marker-alt"></i> 观测点数量</h3>
+                <div class="value" id="pointCount">-</div>
+            </div>
+            <div class="info-card">
+                <h3><i class="fas fa-star"></i> 可见天体</h3>
+                <div class="value" id="visibleCount">-</div>
+            </div>
+            <div class="info-card">
+                <h3><i class="fas fa-clock"></i> 当前时间</h3>
+                <div class="value" id="currentTime" style="font-size: 1.8em;">-</div>
+            </div>
+            <div class="info-card">
+                <h3><i class="fas fa-signal"></i> 系统状态</h3>
+                <div class="value" id="systemStatus" style="font-size: 1.5em;">运行中</div>
+            </div>
+        </div>
+
+        <div class="search-section">
+            <div class="time-selector">
+                <h3><i class="fas fa-clock"></i> 观测时间设置</h3>
+                <div class="time-controls">
+                    <input type="datetime-local" id="observationTime" />
+                    <button id="resetTimeBtn" class="btn" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); box-shadow: 0 4px 15px rgba(107, 114, 128, 0.4);">
+                        <span><i class="fas fa-clock"></i> 当前时间</span>
+                    </button>
+                    <button id="updateTimeBtn" class="btn" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);">
+                        <span><i class="fas fa-sync-alt"></i> 更新星体</span>
+                    </button>
+                </div>
+                <div class="time-info">
+                    查询时间: <span id="queryTimeDisplay">-</span>
+                </div>
+            </div>
+
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 搜索星星名称（中文/英文）..." autocomplete="off">
+                <button id="showAllBtn" class="btn"><span><i class="fas fa-th"></i> 显示全部</span></button>
+                <button id="refreshBtn" class="btn"><span><i class="fas fa-sync-alt"></i> 刷新可见</span></button>
+            </div>
+            
+            <div id="visibleStars" class="visible-stars-grid"></div>
+        </div>
+
+        <div id="results" class="results-section"></div>
+
+        <div class="hydro-card" style="margin-bottom: 20px;">
+            <div class="card-header">
+                <h2><i class="fas fa-cloud-sun"></i> 实时天气与观星条件</h2>
+            </div>
+            <div id="weather-container" class="weather-grid">
+                <div class="loading" style="grid-column: 1/-1; padding: 20px;">
+                    <i class="fas fa-spinner fa-spin"></i> 正在获取天气数据...
+                </div>
+            </div>
+        </div>
+
+        <div class="hydro-card">
+            <div class="card-header">
+                <h2><i class="fas fa-map-marked-alt"></i> 观测点地图</h2>
+            </div>
+            <div id="map-container"></div>
+        </div>
+
+        <div class="points-list">
+            <h2><i class="fas fa-location-dot"></i> 观测点列表</h2>
+            <div id="pointsList" class="points-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        const searchInput = document.getElementById('searchInput');
+        const showAllBtn = document.getElementById('showAllBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const updateTimeBtn = document.getElementById('updateTimeBtn');
+        const resetTimeBtn = document.getElementById('resetTimeBtn');
+        const observationTimeInput = document.getElementById('observationTime');
+        const queryTimeDisplay = document.getElementById('queryTimeDisplay');
+        const resultsDiv = document.getElementById('results');
+        const visibleStarsDiv = document.getElementById('visibleStars');
+        
+        let allStarsData = []; // 存储所有星星数据
+        let currentMode = 'visible'; // 'visible' 或 'all'
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            initializeObservationTime();
+            loadSystemInfo();
+            loadVisibleStars();
+            loadAllStars(); // 预加载所有星星数据
+            initMap(); // 初始化地图
+            updateTime();
+            setInterval(updateTime, 1000); // 每秒更新时间
+        });
+
+        // 初始化观测时间为当前时间
+        function initializeObservationTime() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+            observationTimeInput.value = localDateTime;
+            updateQueryTimeDisplay();
+        }
+
+        // 更新查询时间显示
+        function updateQueryTimeDisplay() {
+            if (observationTimeInput.value) {
+                const dt = new Date(observationTimeInput.value);
+                queryTimeDisplay.textContent = dt.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                });
+            }
+        }
+
+        // 监听时间选择变化 - 只更新显示，不自动刷新
+        observationTimeInput.addEventListener('change', () => {
+            updateQueryTimeDisplay();
+        });
+
+        // 重置为当前时间按钮
+        resetTimeBtn.addEventListener('click', () => {
+            initializeObservationTime();
+        });
+
+        // 更新星体按钮 - 使用选定的时间刷新可见星体
+        updateTimeBtn.addEventListener('click', () => {
+            if (currentMode === 'visible') {
+                loadVisibleStars();
+            }
+        });
+
+        // 刷新按钮 - 刷新可见星星
+        refreshBtn.addEventListener('click', () => {
+            currentMode = 'visible';
+            searchInput.value = '';
+            resultsDiv.style.display = 'none';
+            loadSystemInfo();
+            loadVisibleStars();
+        });
+        
+        // 显示全部按钮
+        showAllBtn.addEventListener('click', () => {
+            currentMode = 'all';
+            searchInput.value = '';
+            resultsDiv.style.display = 'none';
+            displayAllStars();
+        });
+        
+        // 搜索功能
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim().toLowerCase();
+            
+            if (query === '') {
+                // 如果搜索框为空，恢复到当前模式
+                if (currentMode === 'visible') {
+                    loadVisibleStars();
+                } else {
+                    displayAllStars();
+                }
+                return;
+            }
+            
+            // 搜索时使用所有星星数据
+            const filtered = allStarsData.filter(star => 
+                star.name.toLowerCase().includes(query) || 
+                star.name_cn.includes(query)
+            );
+            
+            displaySearchResults(filtered, query);
+        });
+
+        // 更新时间显示
+        function updateTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false });
+            document.getElementById('currentTime').textContent = timeStr;
+        }
+
+        // 加载系统信息
+        async function loadSystemInfo() {
+            try {
+                const response = await fetch('/api/points');
+                const data = await response.json();
+                
+                if (response.ok && Array.isArray(data)) {
+                    document.getElementById('pointCount').textContent = data.length;
+                    document.getElementById('systemStatus').textContent = '✓ 正常';
+                    document.getElementById('systemStatus').style.color = '#00ff00';
+                    
+                    // 显示观测点列表
+                    displayPointsList(data);
+                }
+            } catch (error) {
+                document.getElementById('systemStatus').textContent = '✗ 异常';
+                document.getElementById('systemStatus').style.color = '#ff0000';
+            }
+        }
+
+        // 显示观测点列表
+        function displayPointsList(points) {
+            const pointsListDiv = document.getElementById('pointsList');
+            
+            if (points.length === 0) {
+                pointsListDiv.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: #94a3b8;">无观测点数据</p>';
+                return;
+            }
+
+            let html = '';
+            points.forEach(point => {
+                html += `
+                    <div class="point-item" onclick="window.location.href='/point/${encodeURIComponent(point.name)}'">
+                        <h3><i class="fas fa-map-pin"></i> ${point.name}</h3>
+                        <p><i class="fas fa-compass"></i> 经度: ${point.longitude.toFixed(3)}°</p>
+                        <p><i class="fas fa-compass"></i> 纬度: ${point.latitude.toFixed(3)}°</p>
+                        <p><i class="fas fa-hiking"></i> 难度: ${point.difficulty}</p>
+                        <p><i class="fas fa-eye"></i> 视角: ${point.view_start}° - ${point.view_end}°</p>
+                    </div>
+                `;
+            });
+            
+            pointsListDiv.innerHTML = html;
+        }
+
+        // 加载所有星星数据（用于搜索）
+        async function loadAllStars() {
+            try {
+                const response = await fetch('/api/all-stars');
+                const data = await response.json();
+                if (response.ok) {
+                    allStarsData = data.celestial_objects;
+                }
+            } catch (error) {
+                console.error('加载所有星星数据失败:', error);
+            }
+        }
+
+        // 显示所有星星（不管是否可见）
+        async function displayAllStars() {
+            visibleStarsDiv.innerHTML = '<div class="loading" style="grid-column: 1/-1;"><div class="compass">✨</div><p>正在加载所有天体数据...</p></div>';
+            
+            if (allStarsData.length === 0) {
+                await loadAllStars();
+            }
+            
+            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 10px; font-size: 1.3em;"><i class="fas fa-book"></i> 所有天体列表（共' + allStarsData.length + '个）</h3>';
+            allStarsData.forEach(star => {
+                const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
+                const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
+                const magText = star.magnitude !== null ? `亮度: ${star.magnitude.toFixed(2)}` : '行星';
+                
+                html += `
+                    <div class="${cardClass}" onclick="selectStar('${star.name}')">
+                        <div class="star-name">${typeIcon} ${star.name_cn}</div>
+                        <div class="star-name-en">${star.name}</div>
+                        <div class="star-details">${magText}</div>
+                    </div>
+                `;
+            });
+            
+            visibleStarsDiv.innerHTML = html;
+        }
+
+        // 显示搜索结果
+        function displaySearchResults(filtered, query) {
+            if (filtered.length === 0) {
+                visibleStarsDiv.innerHTML = `<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8; font-size: 1.1em;"><i class="fas fa-search"></i> 未找到包含 "${query}" 的天体</p>`;
+                return;
+            }
+            
+            let html = `<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 10px; font-size: 1.3em;"><i class="fas fa-search"></i> 搜索结果（共${filtered.length}个）</h3>`;
+            filtered.forEach(star => {
+                const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
+                const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
+                const magText = star.magnitude !== null ? `亮度: ${star.magnitude.toFixed(2)}` : '行星';
+                
+                html += `
+                    <div class="${cardClass}" onclick="selectStar('${star.name}')">
+                        <div class="star-name">${typeIcon} ${star.name_cn}</div>
+                        <div class="star-name-en">${star.name}</div>
+                        <div class="star-details">${magText}</div>
+                    </div>
+                `;
+            });
+            
+            visibleStarsDiv.innerHTML = html;
+        }
+
+        async function loadVisibleStars() {
+            visibleStarsDiv.innerHTML = '<div class="loading" style="grid-column: 1/-1;"><div class="compass">✨</div><p>正在加载实时星空数据...</p></div>';
+            currentMode = 'visible';
+            showAllBtn.textContent = '显示全部';
+
+            try {
+                console.log('开始加载可见星星...');
+                
+                // 获取选定的观测时间
+                let url = '/api/visible-stars?min_altitude=0';
+                if (observationTimeInput.value) {
+                    const obsTime = new Date(observationTimeInput.value).toISOString();
+                    url += `&obs_time=${encodeURIComponent(obsTime)}`;
+                    console.log('使用观测时间:', obsTime);
+                }
+                
+                const response = await fetch(url);
+                console.log('响应状态:', response.status);
+                const data = await response.json();
+                console.log('响应数据:', data);
+
+                if (!response.ok) {
+                    throw new Error(data.error || '加载失败');
+                }
+
+                displayVisibleStars(data.stars);
+                
+                // 更新可见天体数量
+                document.getElementById('visibleCount').textContent = data.count || data.stars.length;
+            } catch (error) {
+                console.error('加载错误:', error);
+                visibleStarsDiv.innerHTML = `<div class="error" style="grid-column: 1/-1;"><i class="fas fa-exclamation-triangle"></i> 加载失败: ${error.message}</div>`;
+                document.getElementById('visibleCount').textContent = '0';
+            }
+        }
+
+        function displayVisibleStars(stars) {
+            if (stars.length === 0) {
+                visibleStarsDiv.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8; font-size: 1.1em;"><i class="fas fa-moon"></i> 当前无可见天体</p>';
+                return;
+            }
+
+            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 15px; font-size: 1.3em;"><i class="fas fa-eye"></i> 当前可见天体（共' + stars.length + '个）- 点击查看观测建议</h3>';
+            stars.forEach(star => {
+                const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
+                const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
+                
+                // 根据高度角判断可见性等级
+                let visibilityBadge = '';
+                if (star.altitude >= 30) {
+                    visibilityBadge = '<span class="star-altitude" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%;"><i class="fas fa-circle-check"></i> 最佳观测</span>';
+                } else if (star.altitude >= 15) {
+                    visibilityBadge = '<span class="star-altitude" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%;"><i class="fas fa-eye"></i> 可见</span>';
+                } else {
+                    visibilityBadge = '<span class="star-altitude" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%;"><i class="fas fa-triangle-exclamation"></i> 地平线附近</span>';
+                }
+                
+                html += `
+                    <div class="${cardClass}" onclick="selectStar('${star.name}')">
+                        <div class="star-name">${typeIcon} ${star.name_cn}</div>
+                        <div class="star-name-en">${star.name}</div>
+                        <div class="star-details">
+                            <i class="fas fa-compass"></i> 方位角: ${star.azimuth.toFixed(1)}°<br>
+                            <i class="fas fa-arrow-up"></i> 高度角: ${star.altitude.toFixed(1)}°
+                            ${star.magnitude !== null ? '<br><i class="fas fa-sun"></i> 亮度: ' + star.magnitude.toFixed(2) : ''}
+                        </div>
+                        ${visibilityBadge}
+                    </div>
+                `;
+            });
+
+            visibleStarsDiv.innerHTML = html;
+        }
+
+        // 选择星星并跳转到详情页面
+        async function selectStar(starName) {
+            // 获取当前选择的观测时间
+            let url = `/star/${encodeURIComponent(starName)}`;
+            if (observationTimeInput.value) {
+                const obsTime = new Date(observationTimeInput.value).toISOString();
+                url += `?time=${encodeURIComponent(obsTime)}`;
+            }
+            window.location.href = url;
+        }
+
+        // 将方位角转换为方向描述
+        function azimuthToDirection(azimuth) {
+            const directions = [
+                { name: '正北', range: [348.75, 11.25] },
+                { name: '北偏东', range: [11.25, 33.75] },
+                { name: '东北', range: [33.75, 56.25] },
+                { name: '东偏北', range: [56.25, 78.75] },
+                { name: '正东', range: [78.75, 101.25] },
+                { name: '东偏南', range: [101.25, 123.75] },
+                { name: '东南', range: [123.75, 146.25] },
+                { name: '南偏东', range: [146.25, 168.75] },
+                { name: '正南', range: [168.75, 191.25] },
+                { name: '南偏西', range: [191.25, 213.75] },
+                { name: '西南', range: [213.75, 236.25] },
+                { name: '西偏南', range: [236.25, 258.75] },
+                { name: '正西', range: [258.75, 281.25] },
+                { name: '西偏北', range: [281.25, 303.75] },
+                { name: '西北', range: [303.75, 326.25] },
+                { name: '北偏西', range: [326.25, 348.75] }
+            ];
+            
+            for (let dir of directions) {
+                if (dir.range[0] <= dir.range[1]) {
+                    if (azimuth >= dir.range[0] && azimuth < dir.range[1]) {
+                        return dir.name;
+                    }
+                } else {
+                    if (azimuth >= dir.range[0] || azimuth < dir.range[1]) {
+                        return dir.name;
+                    }
+                }
+            }
+            return '正北';
+        }
+
+        // 获取仰角描述
+        function getAltitudeDescription(altitude) {
+            if (altitude < 10) return '地平线附近';
+            if (altitude < 30) return '低空';
+            if (altitude < 60) return '中空';
+            if (altitude < 80) return '高空';
+            return '接近天顶';
+        }
+
+        function displayResults(data) {
+            const { star_info, best_point, all_points } = data;
+            
+            const direction = azimuthToDirection(star_info.azimuth);
+            const altitudeDesc = getAltitudeDescription(star_info.altitude);
+
+            let html = `
+                <div class="star-info">
+                    <h2><i class="fas fa-star"></i> ${star_info.name}</h2>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-compass"></i> 观测方向</div>
+                            <div class="info-value">${direction}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-location-crosshairs"></i> 方位角</div>
+                            <div class="info-value">${star_info.azimuth.toFixed(1)}°</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-arrow-up"></i> 仰角</div>
+                            <div class="info-value">${star_info.altitude.toFixed(1)}° (${altitudeDesc})</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-map"></i> 天体坐标</div>
+                            <div class="info-value">RA ${star_info.ra.toFixed(1)}° / Dec ${star_info.dec.toFixed(1)}°</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommendations">
+                    <h3><i class="fas fa-map-marked-alt"></i> 推荐观测点（共 ${all_points.length} 个）</h3>
+            `;
+
+            all_points.forEach((point, index) => {
+                const isBest = index === 0;
+                const difficultyText = point.difficulty <= 30 ? '简单' : point.difficulty <= 60 ? '中等' : '困难';
+                const difficultyIcon = point.difficulty <= 30 ? 'fa-smile' : point.difficulty <= 60 ? 'fa-meh' : 'fa-frown';
+                
+                html += `
+                    <div class="point-card ${isBest ? 'best' : ''}">
+                        <div class="point-header">
+                            <div class="point-name">
+                                ${isBest ? '<i class="fas fa-trophy"></i> ' : `${index + 1}. `}${point.name}
+                            </div>
+                            <div class="point-score"><i class="fas fa-star"></i> 评分: ${point.score.toFixed(1)}</div>
+                        </div>
+                        <div class="point-details">
+                            <div class="detail-item" style="grid-column: 1/-1; background: rgba(88, 101, 242, 0.15); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 3px solid #5865f2;">
+                                <div>
+                                    <strong><i class="fas fa-route"></i> 观测指引：</strong><br>
+                                    朝 <strong style="color: #60a5fa; font-size: 1.15em;">${direction}</strong> 方向，仰角 <strong style="color: #60a5fa; font-size: 1.15em;">${star_info.altitude.toFixed(1)}°</strong>（${altitudeDesc}）
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-map-pin"></i> 经度: ${point.longitude}°
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-map-pin"></i> 纬度: ${point.latitude}°
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas ${difficultyIcon}"></i> 难易度: ${point.difficulty} (${difficultyText})
+                            </div>
+                            <div class="detail-item">
+                                <i class="fas fa-eye"></i> 可观测: ${point.view_start}° - ${point.view_end}°
+                            </div>
+                        </div>
+                        ${isBest ? '<div class="best-badge"><i class="fas fa-award"></i> 最佳推荐</div>' : ''}
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resultsDiv.innerHTML = html;
+        }
+
+        let map;
+        let wildSpotsLayer = null;
+
+        // 初始化地图
+        function initMap() {
+            // 三山岛中心坐标
+            const center = [31.03, 120.29];
+            map = L.map('map-container').setView(center, 14);
+
+            // 使用深色地图瓦片
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            // 获取并添加观测点
+            fetch('/api/points')
+                .then(response => response.json())
+                .then(points => {
+                    points.forEach(point => {
+                        const marker = L.marker([point.latitude, point.longitude]).addTo(map);
+                        
+                        // 难度颜色
+                        let difficultyColor = '#10b981'; // 简单 - 绿色
+                        if (point.difficulty > 60) difficultyColor = '#ef4444'; // 困难 - 红色
+                        else if (point.difficulty > 30) difficultyColor = '#f59e0b'; // 中等 - 黄色
+
+                        const popupContent = `
+                            <div style="color: #333; min-width: 200px;">
+                                <h3 style="margin: 0 0 8px 0; color: #3b82f6;">${point.name}</h3>
+                                <p style="margin: 4px 0;"><strong>经度:</strong> ${point.longitude}</p>
+                                <p style="margin: 4px 0;"><strong>纬度:</strong> ${point.latitude}</p>
+                                <p style="margin: 4px 0;"><strong>难易度:</strong> <span style="color: ${difficultyColor}; font-weight: bold;">${point.difficulty}</span></p>
+                                <p style="margin: 4px 0;"><strong>视角:</strong> ${point.view_start}° - ${point.view_end}°</p>
+                            </div>
+                        `;
+                        marker.bindPopup(popupContent);
+                    });
+                })
+                .catch(error => console.error('Error loading points:', error));
+
+            // 绑定寻找野外点按钮事件
+            // const findWildBtn = document.getElementById('findWildBtn');
+            // if (findWildBtn) {
+            //     findWildBtn.addEventListener('click', loadWildSpots);
+            // }
+        }
+
+        // 加载天气数据
+        async function loadWeather() {
+            const container = document.getElementById('weather-container');
+            try {
+                const response = await fetch('/api/weather');
+                const data = await response.json();
+                
+                if (!response.ok) throw new Error(data.error);
+                
+                // 观星条件颜色
+                let conditionColor = '#ef4444'; // 差
+                if (data.stargazing_score >= 80) conditionColor = '#10b981'; // 极佳
+                else if (data.stargazing_score >= 60) conditionColor = '#3b82f6'; // 良好
+                else if (data.stargazing_score >= 40) conditionColor = '#f59e0b'; // 一般
+                
+                container.innerHTML = `
+                    <div class="weather-card" style="border-color: ${conditionColor}; background: rgba(${parseInt(conditionColor.slice(1,3),16)}, ${parseInt(conditionColor.slice(3,5),16)}, ${parseInt(conditionColor.slice(5,7),16)}, 0.1);">
+                        <i class="fas fa-star" style="color: ${conditionColor};"></i>
+                        <div class="label">观星指数</div>
+                        <div class="data" style="color: ${conditionColor};">${data.stargazing_score}</div>
+                        <div class="condition-badge" style="background: ${conditionColor}; color: #fff;">${data.condition_text}</div>
+                    </div>
+                    
+                    <div class="weather-card">
+                        <i class="fas fa-temperature-high"></i>
+                        <div class="label">气温</div>
+                        <div class="data">${data.temperature}°C</div>
+                    </div>
+                    
+                    <div class="weather-card">
+                        <i class="fas fa-cloud"></i>
+                        <div class="label">云量</div>
+                        <div class="data">${data.cloud_cover}%</div>
+                    </div>
+                    
+                    <div class="weather-card">
+                        <i class="fas fa-moon"></i>
+                        <div class="label">月相</div>
+                        <div class="data">${data.moon_phase_text}</div>
+                        <div class="label" style="font-size: 0.75em;">${(data.moon_phase * 100).toFixed(0)}% 被照亮</div>
+                    </div>
+                    
+                    <div class="weather-card">
+                        <i class="fas fa-wind"></i>
+                        <div class="label">风速</div>
+                        <div class="data">${data.wind_speed} km/h</div>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Weather error:', error);
+                container.innerHTML = `
+                    <div class="error" style="grid-column: 1/-1; padding: 15px;">
+                        <i class="fas fa-exclamation-triangle"></i> 天气数据加载失败
+                    </div>
+                `;
+            }
+        }
+
+        // 页面加载完成后执行
+        document.addEventListener('DOMContentLoaded', () => {
+            loadWeather();
+        });
+    </script>
+</body>
+</html>

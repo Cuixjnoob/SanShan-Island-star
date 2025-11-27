@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ point_name }} - 观测点详情</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <style>
+        :root {
+            /* LeetCode Dark Theme Inspired Colors */
+            --lc-bg: #1a1a1a;
+            --lc-card-bg: #282828;
+            --lc-card-hover: #323232;
+            --lc-text-main: #eff1f6;
+            --lc-text-sub: #8a8a8a;
+            --lc-primary: #ffa116; /* LeetCode Orange */
+            --lc-accent: #0a84ff; /* LeetCode Blue */
+            --lc-success: #2cbb5d;
+            --lc-warning: #ffc01e;
+            --lc-danger: #ef4743;
+            --lc-border: #3e3e3e;
+            --lc-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+            --lc-radius: 8px;
+            --lc-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--lc-font);
+            background-color: var(--lc-bg);
+            min-height: 100vh;
+            color: var(--lc-text-main);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: var(--lc-card-bg);
+            border: 1px solid transparent;
+            border-radius: var(--lc-radius);
+            color: var(--lc-text-main);
+            text-decoration: none;
+            font-size: 0.95em;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+            box-shadow: var(--lc-shadow);
+        }
+
+        .back-button:hover {
+            background: var(--lc-card-hover);
+            color: var(--lc-primary);
+        }
+
+        .hydro-card {
+            background: var(--lc-card-bg);
+            border-radius: var(--lc-radius);
+            box-shadow: var(--lc-shadow);
+            margin-bottom: 20px;
+            padding: 24px;
+            border: 1px solid transparent;
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: var(--lc-text-main);
+            border-bottom: 1px solid var(--lc-border);
+            padding-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            background: var(--lc-bg);
+            padding: 16px;
+            border-radius: var(--lc-radius);
+            border: 1px solid var(--lc-border);
+        }
+
+        .info-label {
+            font-size: 0.85em;
+            color: var(--lc-text-sub);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .info-value {
+            font-size: 1.2em;
+            font-weight: 600;
+            color: var(--lc-text-main);
+        }
+
+        #map-container {
+            height: 300px;
+            width: 100%;
+            border-radius: var(--lc-radius);
+            margin-bottom: 20px;
+            border: 1px solid var(--lc-border);
+            z-index: 1;
+        }
+
+        .stars-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .star-card {
+            background: var(--lc-bg);
+            border: 1px solid var(--lc-border);
+            border-radius: var(--lc-radius);
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .star-card:hover {
+            border-color: var(--lc-primary);
+            background: var(--lc-card-hover);
+            transform: translateY(-2px);
+        }
+
+        .star-card.planet {
+            border-left: 3px solid var(--lc-warning);
+        }
+
+        .star-name {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: var(--lc-text-main);
+            margin-bottom: 4px;
+        }
+
+        .star-details {
+            font-size: 0.85em;
+            color: var(--lc-text-sub);
+            line-height: 1.6;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--lc-text-sub);
+        }
+
+        /* Time Selector */
+        .time-selector {
+            background: var(--lc-bg);
+            padding: 16px;
+            border-radius: var(--lc-radius);
+            margin-bottom: 20px;
+            border: 1px solid var(--lc-border);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        input[type="datetime-local"] {
+            background: var(--lc-bg);
+            border: 1px solid var(--lc-border);
+            color: var(--lc-text-main);
+            padding: 8px 12px;
+            border-radius: 6px;
+            outline: none;
+        }
+        
+        input[type="datetime-local"]:focus {
+            border-color: var(--lc-primary);
+        }
+
+        .btn {
+            background: var(--lc-primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            background: #e59113;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-button"><i class="fas fa-arrow-left"></i> 返回首页</a>
+
+        <div class="hydro-card">
+            <h1><i class="fas fa-map-pin"></i> <span id="pointName">{{ point_name }}</span></h1>
+            
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label"><i class="fas fa-compass"></i> 经纬度</div>
+                    <div class="info-value" id="pointCoords">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label"><i class="fas fa-hiking"></i> 难易度</div>
+                    <div class="info-value" id="pointDifficulty">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label"><i class="fas fa-eye"></i> 可视范围</div>
+                    <div class="info-value" id="pointView">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label"><i class="fas fa-star"></i> 当前可见天体</div>
+                    <div class="info-value" id="visibleCount">-</div>
+                </div>
+            </div>
+
+            <div id="map-container"></div>
+        </div>
+
+        <div class="hydro-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--lc-border); padding-bottom: 15px;">
+                <h2 style="margin: 0; font-size: 1.5em; color: var(--lc-text-main); font-weight: 600;"><i class="fas fa-list-ul"></i> 可见天体列表</h2>
+                <div class="time-selector" style="margin: 0; padding: 5px; border: none; background: none;">
+                    <input type="datetime-local" id="observationTime">
+                    <button id="updateTimeBtn" class="btn"><i class="fas fa-sync-alt"></i> 更新</button>
+                </div>
+            </div>
+            
+            <div id="starsList" class="stars-grid">
+                <div class="loading"><i class="fas fa-spinner fa-spin"></i> 正在加载数据...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const pointName = "{{ point_name }}";
+        const observationTimeInput = document.getElementById('observationTime');
+        
+        // 初始化时间
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        observationTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+        // 加载数据
+        loadPointData();
+
+        document.getElementById('updateTimeBtn').addEventListener('click', loadPointData);
+
+        async function loadPointData() {
+            const starsList = document.getElementById('starsList');
+            starsList.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> 正在加载数据...</div>';
+
+            try {
+                let url = `/api/point/${encodeURIComponent(pointName)}`;
+                if (observationTimeInput.value) {
+                    const obsTime = new Date(observationTimeInput.value).toISOString();
+                    url += `?time=${encodeURIComponent(obsTime)}`;
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (!response.ok) throw new Error(data.error || '加载失败');
+
+                updatePointInfo(data.point);
+                initMap(data.point);
+                displayStars(data.stars);
+                document.getElementById('visibleCount').textContent = data.count;
+
+            } catch (error) {
+                console.error(error);
+                starsList.innerHTML = `<div class="loading" style="color: #ef4444;">${error.message}</div>`;
+            }
+        }
+
+        function updatePointInfo(point) {
+            document.getElementById('pointCoords').textContent = `${point.longitude.toFixed(3)}°E, ${point.latitude.toFixed(3)}°N`;
+            
+            let diffText = point.difficulty <= 30 ? '简单' : point.difficulty <= 60 ? '中等' : '困难';
+            let diffColor = point.difficulty <= 30 ? '#10b981' : point.difficulty <= 60 ? '#f59e0b' : '#ef4444';
+            document.getElementById('pointDifficulty').innerHTML = `<span style="color: ${diffColor}">${point.difficulty} (${diffText})</span>`;
+            
+            document.getElementById('pointView').textContent = `${point.view_start}° - ${point.view_end}°`;
+        }
+
+        let map = null;
+        function initMap(point) {
+            if (map) {
+                map.remove(); // 防止重复初始化
+            }
+            
+            map = L.map('map-container').setView([point.latitude, point.longitude], 15);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+                subdomains: 'abcd',
+                maxZoom: 19
+            }).addTo(map);
+
+            L.marker([point.latitude, point.longitude])
+                .addTo(map)
+                .bindPopup(`<b>${point.name}</b>`)
+                .openPopup();
+        }
+
+        function displayStars(stars) {
+            const container = document.getElementById('starsList');
+            if (stars.length === 0) {
+                container.innerHTML = '<div class="loading">当前时间该观测点无可见天体</div>';
+                return;
+            }
+
+            let html = '';
+            stars.forEach(star => {
+                const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
+                const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
+                
+                html += `
+                    <div class="${cardClass}" onclick="window.location.href='/star/${encodeURIComponent(star.name)}'">
+                        <div class="star-name">${typeIcon} ${star.name_cn}</div>
+                        <div class="star-details">
+                            <i class="fas fa-compass"></i> 方位: ${star.azimuth.toFixed(1)}°<br>
+                            <i class="fas fa-arrow-up"></i> 仰角: ${star.altitude.toFixed(1)}°<br>
+                            ${star.magnitude !== null ? '<i class="fas fa-sun"></i> 亮度: ' + star.magnitude.toFixed(2) : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

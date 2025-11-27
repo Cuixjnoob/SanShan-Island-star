@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>API测试</title>
+</head>
+<body>
+    <h1>API测试页面</h1>
+    <button onclick="testAPI()">测试星空API</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = '正在测试...\n';
+            
+            try {
+                resultDiv.textContent += '发送请求到 /api/visible-stars...\n';
+                const response = await fetch('/api/visible-stars?min_altitude=0');
+                resultDiv.textContent += `响应状态: ${response.status}\n`;
+                
+                const data = await response.json();
+                resultDiv.textContent += `响应数据:\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.textContent += `错误: ${error.message}\n${error.stack}`;
+            }
+        }
+        
+        // 自动测试
+        window.onload = testAPI;
+    </script>
+</body>
+</html>
