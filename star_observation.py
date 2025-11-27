@@ -401,7 +401,16 @@ class StarObservationSelector:
         
         # 3. 难易程度分数（0-20分）
         # difficulty越小越容易。假设difficulty范围0-100
-        difficulty_score = (100 - point.difficulty) * 0.2
+        # 将文字难度转换为数值进行计算
+        difficulty_val = 50 # 默认中等
+        if point.difficulty == '简单':
+            difficulty_val = 20
+        elif point.difficulty == '中等':
+            difficulty_val = 50
+        elif point.difficulty == '困难':
+            difficulty_val = 80
+            
+        difficulty_score = (100 - difficulty_val) * 0.2
         
         # 总分 = 地理位置(40%) + 视角位置(40%) + 难易度(20%)
         total_score = location_match_score + view_position_score + difficulty_score
