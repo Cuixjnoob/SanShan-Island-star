@@ -315,9 +315,9 @@
             
             map = L.map('map-container').setView([point.latitude, point.longitude], 15);
             
-            // 使用 GeoQ 彩色地图 (国内源，WGS84，类似谷歌地图风格)
-            L.tileLayer('https://map.geoq.cn/ArcGIS/rest/services/ChinaOnlineCommunity/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '&copy; <a href="http://www.geoq.cn/">GeoQ</a>',
+            // 使用 ArcGIS World Street Map (标准彩色地图，WGS84，稳定可靠)
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '&copy; Esri',
                 maxZoom: 19
             }).addTo(map);
 
