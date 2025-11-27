@@ -476,7 +476,7 @@ class StarObservationSelector:
             print(f"  🧭 可观测范围: {point.view_start}° - {point.view_end}°")
             
             if idx == 1:
-                if point.difficulty <= 30:
+                if point.difficulty == '简单':
                     print(f"  💡 推荐理由: 交通便利，易于到达")
                 else:
                     print(f"  💡 推荐理由: 最佳视角")
