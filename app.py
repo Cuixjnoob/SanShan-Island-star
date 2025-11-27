@@ -31,11 +31,6 @@ def index():
     """主页"""
     return render_template('index.html')
 
-@app.route('/test')
-def test():
-    """测试页面"""
-    return render_template('test.html')
-
 
 @app.route('/star/<star_name>')
 def star_detail(star_name):
@@ -199,7 +194,10 @@ def get_point_details(point_name):
 def get_wild_spots():
     """获取野外推荐观测点"""
     try:
-        spots = terrain_service.get_wild_spots()
+        azimuth = request.args.get('azimuth', type=float)
+        altitude = request.args.get('altitude', type=float)
+        
+        spots = terrain_service.get_wild_spots(target_azimuth=azimuth, target_altitude=altitude)
         return jsonify(spots), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

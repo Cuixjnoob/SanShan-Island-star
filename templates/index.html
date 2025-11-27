@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/star-bg.css') }}">
     <style>
         :root {
             /* LeetCode Dark Theme Inspired Colors */
@@ -38,6 +39,7 @@
             min-height: 100vh;
             color: var(--lc-text-main);
             line-height: 1.6;
+            position: relative;
         }
 
         .container {
@@ -272,7 +274,8 @@
 
         /* 输入框和按钮 */
         input[type="text"], 
-        input[type="datetime-local"] {
+        input[type="datetime-local"],
+        select {
             background: var(--lc-bg);
             border: 1px solid var(--lc-border);
             color: var(--lc-text-main);
@@ -284,7 +287,8 @@
         }
 
         input[type="text"]:focus, 
-        input[type="datetime-local"]:focus {
+        input[type="datetime-local"]:focus,
+        select:focus {
             border-color: var(--lc-primary);
         }
 
@@ -292,11 +296,18 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
         .search-box input {
             flex: 1;
+            min-width: 200px;
             padding: 10px 15px;
+        }
+        
+        .search-box select {
+            padding: 10px 15px;
+            cursor: pointer;
         }
 
         .btn {
@@ -443,7 +454,6 @@
     <div class="container">
         <header>
             <h1>✨ 三山岛观星选址系统</h1>
-            <p class="subtitle"><i class="fas fa-users"></i> 王晟瑄 崔行骥 赵泊钧 赵周麟 严以正 潘彦宏</p>
         </header>
 
         <div class="system-info">
@@ -484,6 +494,18 @@
 
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="🔍 搜索星星名称（中文/英文）..." autocomplete="off">
+                
+                <select id="typeFilter">
+                    <option value="all">🪐 所有类型</option>
+                    <option value="star">✨ 恒星</option>
+                    <option value="planet">🌍 行星</option>
+                </select>
+                
+                <select id="toolFilter">
+                    <option value="all">🔭 所有工具</option>
+                    <option value="naked">👀 肉眼可见</option>
+                </select>
+
                 <button id="showAllBtn" class="btn"><span><i class="fas fa-th"></i> 显示全部</span></button>
                 <button id="refreshBtn" class="btn"><span><i class="fas fa-sync-alt"></i> 刷新可见</span></button>
             </div>
@@ -515,6 +537,11 @@
             <h2><i class="fas fa-location-dot"></i> 观测点列表</h2>
             <div id="pointsList" class="points-grid"></div>
         </div>
+
+        <footer style="text-align: center; margin-top: 40px; padding: 20px; color: var(--lc-text-sub); border-top: 1px solid var(--lc-border);">
+            <p style="margin-bottom: 10px; font-size: 0.9em;">Presented by</p>
+            <p><i class="fas fa-users"></i> 崔行骥 潘彦宏 王晟瑄 严以正 赵泊钧 赵周麟</p>
+        </footer>
     </div>
 
     <script>
@@ -527,8 +554,11 @@
         const queryTimeDisplay = document.getElementById('queryTimeDisplay');
         const resultsDiv = document.getElementById('results');
         const visibleStarsDiv = document.getElementById('visibleStars');
+        const typeFilter = document.getElementById('typeFilter');
+        const toolFilter = document.getElementById('toolFilter');
         
         let allStarsData = []; // 存储所有星星数据
+        let currentStarsData = []; // 当前显示的星星数据（可见或全部）
         let currentMode = 'visible'; // 'visible' 或 'all'
 
         // 页面加载时初始化
@@ -541,6 +571,50 @@
             updateTime();
             setInterval(updateTime, 1000); // 每秒更新时间
         });
+
+        // 统一过滤函数
+        function applyFilters() {
+            const query = searchInput.value.trim().toLowerCase();
+            const type = typeFilter.value;
+            const tool = toolFilter.value;
+
+            // 如果没有数据，直接返回
+            if (!currentStarsData || currentStarsData.length === 0) return;
+
+            const filtered = currentStarsData.filter(star => {
+                // 1. 文本搜索
+                const matchText = star.name.toLowerCase().includes(query) || star.name_cn.includes(query);
+                if (!matchText) return false;
+
+                // 2. 类型过滤
+                if (type !== 'all' && star.type !== type) return false;
+
+                // 3. 工具过滤
+                if (tool !== 'all') {
+                    // 行星通常很亮，视为肉眼可见（除非特别暗，这里简化处理）
+                    // 如果 magnitude 为 null (行星)，设为 -100 (极亮)
+                    const mag = star.magnitude !== null ? star.magnitude : -100; 
+                    
+                    if (tool === 'naked') {
+                        // 肉眼可见: 模拟城市环境，只显示较亮的星星 (< 2.0)
+                        if (mag >= 2.0) return false;
+                    }
+                }
+
+                return true;
+            });
+
+            if (currentMode === 'visible') {
+                displayVisibleStars(filtered);
+            } else {
+                displayAllStarsList(filtered);
+            }
+        }
+
+        // 监听过滤器变化
+        typeFilter.addEventListener('change', applyFilters);
+        toolFilter.addEventListener('change', applyFilters);
+        searchInput.addEventListener('input', applyFilters);
 
         // 初始化观测时间为当前时间
         function initializeObservationTime() {
@@ -591,6 +665,8 @@
         refreshBtn.addEventListener('click', () => {
             currentMode = 'visible';
             searchInput.value = '';
+            typeFilter.value = 'all';
+            toolFilter.value = 'all';
             resultsDiv.style.display = 'none';
             loadSystemInfo();
             loadVisibleStars();
@@ -600,32 +676,14 @@
         showAllBtn.addEventListener('click', () => {
             currentMode = 'all';
             searchInput.value = '';
+            typeFilter.value = 'all';
+            toolFilter.value = 'all';
             resultsDiv.style.display = 'none';
             displayAllStars();
         });
         
-        // 搜索功能
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.trim().toLowerCase();
-            
-            if (query === '') {
-                // 如果搜索框为空，恢复到当前模式
-                if (currentMode === 'visible') {
-                    loadVisibleStars();
-                } else {
-                    displayAllStars();
-                }
-                return;
-            }
-            
-            // 搜索时使用所有星星数据
-            const filtered = allStarsData.filter(star => 
-                star.name.toLowerCase().includes(query) || 
-                star.name_cn.includes(query)
-            );
-            
-            displaySearchResults(filtered, query);
-        });
+        // 搜索功能 (已整合到 applyFilters)
+        // searchInput.addEventListener('input', ...);
 
         // 更新时间显示
         function updateTime() {
@@ -700,22 +758,8 @@
                 await loadAllStars();
             }
             
-            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 10px; font-size: 1.3em;"><i class="fas fa-book"></i> 所有天体列表（共' + allStarsData.length + '个）</h3>';
-            allStarsData.forEach(star => {
-                const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
-                const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
-                const magText = star.magnitude !== null ? `亮度: ${star.magnitude.toFixed(2)}` : '行星';
-                
-                html += `
-                    <div class="${cardClass}" onclick="selectStar('${star.name}')">
-                        <div class="star-name">${typeIcon} ${star.name_cn}</div>
-                        <div class="star-name-en">${star.name}</div>
-                        <div class="star-details">${magText}</div>
-                    </div>
-                `;
-            });
-            
-            visibleStarsDiv.innerHTML = html;
+            currentStarsData = allStarsData;
+            applyFilters();
         }
 
         // 显示搜索结果
@@ -768,7 +812,8 @@
                     throw new Error(data.error || '加载失败');
                 }
 
-                displayVisibleStars(data.stars);
+                currentStarsData = data.stars; // 保存当前数据
+                applyFilters(); // 应用过滤器显示
                 
                 // 更新可见天体数量
                 document.getElementById('visibleCount').textContent = data.count || data.stars.length;
@@ -785,7 +830,7 @@
                 return;
             }
 
-            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 15px; font-size: 1.3em;"><i class="fas fa-eye"></i> 当前可见天体（共' + stars.length + '个）- 点击查看观测建议</h3>';
+            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 15px; font-size: 1.3em;"><i class="fas fa-eye"></i> 当前可见天体（共' + stars.length + '个）</h3>';
             stars.forEach(star => {
                 const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
                 const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
@@ -814,6 +859,31 @@
                 `;
             });
 
+            visibleStarsDiv.innerHTML = html;
+        }
+
+        // 显示所有星星列表（用于搜索结果或全部显示）
+        function displayAllStarsList(stars) {
+            if (stars.length === 0) {
+                visibleStarsDiv.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8; font-size: 1.1em;"><i class="fas fa-search"></i> 未找到匹配的天体</p>';
+                return;
+            }
+            
+            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 10px; font-size: 1.3em;"><i class="fas fa-book"></i> 天体列表（共' + stars.length + '个）</h3>';
+            stars.forEach(star => {
+                const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
+                const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
+                const magText = star.magnitude !== null ? `亮度: ${star.magnitude.toFixed(2)}` : '行星';
+                
+                html += `
+                    <div class="${cardClass}" onclick="selectStar('${star.name}')">
+                        <div class="star-name">${typeIcon} ${star.name_cn}</div>
+                        <div class="star-name-en">${star.name}</div>
+                        <div class="star-details">${magText}</div>
+                    </div>
+                `;
+            });
+            
             visibleStarsDiv.innerHTML = html;
         }
 
@@ -1060,5 +1130,6 @@
             loadWeather();
         });
     </script>
+    <script src="{{ url_for('static', filename='js/star-bg.js') }}"></script>
 </body>
 </html>

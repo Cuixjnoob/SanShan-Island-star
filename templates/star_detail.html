@@ -7,6 +7,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Aladin Lite & jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.css" />
+    <script type="text/javascript" src="https://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.js" charset="utf-8"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/star-bg.css') }}">
+    
     <style>
         :root {
             /* LeetCode Dark Theme Inspired Colors */
@@ -416,6 +423,34 @@
         .leaflet-tooltip-right:before {
             border-right-color: rgba(40, 40, 40, 0.9);
         }
+
+        /* Equipment Recommendation Styles */
+        .equip-row {
+            display: flex;
+            gap: 4px;
+            width: 100%;
+            margin-top: 8px;
+        }
+        .equip-badge {
+            flex: 1;
+            text-align: center;
+            padding: 6px 2px;
+            background: #3e3e3e;
+            border-radius: 4px;
+            font-size: 0.75em;
+            color: #8a8a8a;
+            transition: all 0.3s;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .equip-badge.active {
+            background: rgba(255, 161, 22, 0.15);
+            color: var(--lc-primary);
+            border-color: var(--lc-primary);
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -595,13 +630,16 @@
         function displayStarDetail(data) {
             const { star_info, best_point, all_points } = data;
             
+            // 保存到全局变量供野外点搜索使用
+            window.currentStarInfo = star_info;
+            
             const direction = azimuthToDirection(star_info.azimuth);
             const altitudeDesc = getAltitudeDescription(star_info.altitude);
 
             let html = `
                 <div class="star-info">
                     <h1><i class="fas fa-star"></i> ${star_info.name}</h1>
-                    <div class="info-grid">
+                    <div class="info-grid" style="grid-template-columns: repeat(6, 1fr);">
                         <div class="info-item">
                             <div class="info-label"><i class="fas fa-compass"></i> 观测方向</div>
                             <div class="info-value">${direction}</div>
@@ -612,21 +650,28 @@
                         </div>
                         <div class="info-item">
                             <div class="info-label"><i class="fas fa-arrow-up"></i> 仰角</div>
-                            <div class="info-value">${star_info.altitude.toFixed(1)}° (${altitudeDesc})</div>
+                            <div class="info-value">${star_info.altitude.toFixed(1)}° <span style="font-size: 0.8em; display: block; color: var(--lc-text-sub);">(${altitudeDesc})</span></div>
                         </div>
                         <div class="info-item">
                             <div class="info-label"><i class="fas fa-map"></i> 天体坐标</div>
-                            <div class="info-value">RA ${star_info.ra.toFixed(1)}° / Dec ${star_info.dec.toFixed(1)}°</div>
+                            <div class="info-value" style="font-size: 0.85em;">RA ${star_info.ra.toFixed(1)}°<br>Dec ${star_info.dec.toFixed(1)}°</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label"><i class="fas fa-binoculars"></i> 推荐器材</div>
-                            <div class="info-value" style="color: var(--lc-primary); font-weight: bold;">${star_info.equipment}</div>
+                            <div class="info-value" style="color: var(--lc-primary); font-weight: bold; font-size: 0.9em;">${star_info.equipment}</div>
                         </div>
                         <div class="info-item">
                             <div class="info-label"><i class="fas fa-star-half-alt"></i> 视星等</div>
                             <div class="info-value">${star_info.magnitude !== null ? star_info.magnitude : 'N/A'}</div>
                         </div>
                     </div>
+                </div>
+
+                <div class="star-info" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
+                    <div style="padding: 15px; border-bottom: 1px solid var(--lc-border);">
+                        <h2 style="margin: 0; font-size: 1.2em; border: none;"><i class="fas fa-star-half-alt"></i> 实时星图</h2>
+                    </div>
+                    <div id="aladin-lite-div" style="width: 100%; height: 400px;"></div>
                 </div>
 
                 <div class="star-info" style="padding: 0; overflow: hidden;">
@@ -657,12 +702,6 @@
                             <div class="point-score"><i class="fas fa-star"></i> 评分: ${point.score.toFixed(1)}</div>
                         </div>
                         <div class="point-details">
-                            <div class="observation-guide">
-                                <div>
-                                    <strong><i class="fas fa-route"></i> 观测指引：</strong><br>
-                                    朝 <strong class="highlight-value">${direction}</strong> 方向，仰角 <strong class="highlight-value">${star_info.altitude.toFixed(1)}°</strong>（${altitudeDesc}）
-                                </div>
-                            </div>
                             <div class="detail-item">
                                 <i class="fas fa-map-pin"></i> 经度: ${point.longitude}°
                             </div>
@@ -683,6 +722,38 @@
 
             html += '</div>';
             contentDiv.innerHTML = html;
+
+            // 初始化 Aladin Lite
+            const aladinContainer = document.getElementById('aladin-lite-div');
+            aladinContainer.innerHTML = '<div class="loading" style="height:100%; display:flex; justify-content:center; align-items:center; flex-direction:column; color:var(--lc-text-sub);"><i class="fas fa-spinner fa-spin" style="font-size:2em; margin-bottom:10px;"></i><p>正在连接星图数据库...</p></div>';
+
+            function initAladin() {
+                if (window.A) {
+                    try {
+                        aladinContainer.innerHTML = ''; // 清除加载提示
+                        let aladin = A.aladin('#aladin-lite-div', {
+                            survey: "P/DSS2/color",
+                            fov: 10,
+                            target: `${star_info.ra} ${star_info.dec}`,
+                            showReticle: true
+                        });
+                    } catch (e) {
+                        console.error("Aladin init error", e);
+                        aladinContainer.innerHTML = '<div class="error" style="padding:20px; text-align:center; color:var(--lc-danger);"><i class="fas fa-exclamation-circle"></i> 星图加载发生错误</div>';
+                    }
+                } else {
+                    if (!window.aladinRetries) window.aladinRetries = 0;
+                    if (window.aladinRetries < 30) { // 15秒超时
+                        window.aladinRetries++;
+                        setTimeout(initAladin, 500);
+                    } else {
+                         aladinContainer.innerHTML = '<div class="error" style="padding:20px; text-align:center; color:var(--lc-text-sub);"><i class="fas fa-wifi"></i> 星图引擎加载超时<br><span style="font-size:0.8em">请检查网络连接 (aladin.u-strasbg.fr)</span></div>';
+                    }
+                }
+            }
+            
+            // 延迟一点执行，确保容器已渲染
+            setTimeout(initAladin, 500);
 
             // 初始化地图
             setTimeout(() => {
@@ -753,7 +824,24 @@
             btn.disabled = true;
 
             try {
-                const response = await fetch('/api/wild-spots');
+                // 获取当前星星的方位角和高度角
+                // 注意：这里假设 star_info 是全局变量或者可以从 displayStarDetail 的闭包中获取
+                // 但实际上 star_info 是 displayStarDetail 的局部变量
+                // 我们需要从页面元素中获取，或者将 star_info 存为全局变量
+                
+                // 更好的方式是直接从页面DOM读取，或者在 displayStarDetail 中保存到全局
+                // 这里我们假设 displayStarDetail 已经运行，我们可以从全局变量获取
+                // 为了安全，我们在 displayStarDetail 中设置全局变量
+                
+                const azimuth = window.currentStarInfo ? window.currentStarInfo.azimuth : null;
+                const altitude = window.currentStarInfo ? window.currentStarInfo.altitude : null;
+                
+                let url = '/api/wild-spots';
+                if (azimuth !== null && altitude !== null) {
+                    url += `?azimuth=${azimuth}&altitude=${altitude}`;
+                }
+
+                const response = await fetch(url);
                 const spots = await response.json();
 
                 if (wildSpotsLayer) {
@@ -801,5 +889,6 @@
             }
         }
     </script>
+    <script src="{{ url_for('static', filename='js/star-bg.js') }}"></script>
 </body>
 </html>

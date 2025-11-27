@@ -150,6 +150,15 @@ class StarObservationSelector:
                             name=' '.join(parts[5:])  # 名称可能包含空格
                         )
                         self.observation_points.append(point)
+            
+            # 计算所有观测点的中心位置
+            if self.observation_points:
+                self.avg_lat = sum(p.latitude for p in self.observation_points) / len(self.observation_points)
+                self.avg_lon = sum(p.longitude for p in self.observation_points) / len(self.observation_points)
+            else:
+                self.avg_lat = self.SANSHAN_ISLAND_LAT
+                self.avg_lon = self.SANSHAN_ISLAND_LON
+                
         except FileNotFoundError:
             raise
         except Exception as e:
@@ -336,33 +345,36 @@ class StarObservationSelector:
         
         return suitable_points
     
+    def _calculate_bearing(self, lat1, lon1, lat2, lon2):
+        """计算两点间的方位角"""
+        y = math.sin(math.radians(lon2 - lon1)) * math.cos(math.radians(lat2))
+        x = math.cos(math.radians(lat1)) * math.sin(math.radians(lat2)) - \
+            math.sin(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.cos(math.radians(lon2 - lon1))
+        bearing = math.degrees(math.atan2(y, x))
+        return (bearing + 360) % 360
+
     def calculate_score(self, point: ObservationPoint, azimuth: float, altitude: float) -> float:
         """
         计算观测点的综合评分
         评分规则：
-        1. 观测点地理位置与星星方位的匹配度（权重50%）
+        1. 观测点地理位置与星星方位的匹配度（权重40%）
+           - 比如星星在东方，岛屿东侧的观测点得分更高
         2. 星星在观测点视角范围内的位置（权重40%）
-        3. 难易程度（权重2%）
+           - 星星越接近视角中心，得分越高
+        3. 难易程度（权重20%）
+           - 越容易到达得分越高
         """
-        # 1. 地理位置匹配度分数（0-50分）
-        # 计算岛屿中心位置
-        avg_lat = sum(p.latitude for p in self.observation_points) / len(self.observation_points)
-        avg_lon = sum(p.longitude for p in self.observation_points) / len(self.observation_points)
-        
+        # 1. 地理位置匹配度分数（0-40分）
         # 计算观测点相对于中心的方位
-        lat_diff = point.latitude - avg_lat
-        lon_diff = point.longitude - avg_lon
-        
-        import math
-        point_azimuth = (90 - math.degrees(math.atan2(lat_diff, lon_diff))) % 360
+        point_azimuth = self._calculate_bearing(self.avg_lat, self.avg_lon, point.latitude, point.longitude)
         
         # 计算方位匹配度
         angle_diff = abs(azimuth - point_azimuth)
         if angle_diff > 180:
             angle_diff = 360 - angle_diff
         
-        # 星星在北，观测点在北 → 高分
-        location_match_score = max(0, 50 * (1 - angle_diff / 180))
+        # 差异越小分越高
+        location_match_score = max(0, 40 * (1 - angle_diff / 180))
         
         # 2. 视角范围位置分数（0-40分）
         # 计算视角中心
@@ -387,10 +399,11 @@ class StarObservationSelector:
         
         view_position_score = centrality * 40
         
-        # 3. 难易程度分数（0-2分）
-        difficulty_score = (100 - point.difficulty) * 0.02
+        # 3. 难易程度分数（0-20分）
+        # difficulty越小越容易。假设difficulty范围0-100
+        difficulty_score = (100 - point.difficulty) * 0.2
         
-        # 总分 = 地理位置(50%) + 视角位置(40%) + 难易度(2%)，总计92分制
+        # 总分 = 地理位置(40%) + 视角位置(40%) + 难易度(20%)
         total_score = location_match_score + view_position_score + difficulty_score
         
         return total_score

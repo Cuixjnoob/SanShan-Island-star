@@ -1,5 +1,8 @@
 import requests
+import math
 from datetime import datetime
+from astropy.coordinates import get_body
+from astropy.time import Time
 
 class WeatherService:
     # 三山岛坐标
@@ -9,60 +12,141 @@ class WeatherService:
     def get_current_weather(self):
         """
         获取当前天气和观星条件
-        使用 Open-Meteo API (无需API Key)
+        优先使用国内API (中华万年历/Etouch)，结合本地天文计算
         """
+        try:
+            # 1. 获取天气数据 (使用中华万年历API，无需Key，国内速度快)
+            # 苏州代码: 101190401
+            weather_info = self._fetch_chinese_weather()
+            
+            if not weather_info:
+                # 如果国内API失败，尝试Open-Meteo作为备用
+                return self._fetch_open_meteo()
+            
+            # 2. 计算天文数据 (月相、日出日落)
+            astronomy = self._calculate_astronomy()
+            weather_info.update(astronomy)
+            
+            # 3. 计算观星指数
+            self._calculate_score(weather_info)
+            
+            return weather_info
+            
+        except Exception as e:
+            print(f"Error in weather service: {e}")
+            return None
+
+    def _fetch_chinese_weather(self):
+        """从中华万年历API获取天气"""
+        try:
+            # 尝试使用 sojson API (基于中国气象局数据)
+            url = "http://t.weather.sojson.com/api/weather/city/101190401"
+            response = requests.get(url, timeout=3)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('status') == 200:
+                    weather_data = data.get('data')
+                    current_temp = float(weather_data.get('wendu'))
+                    humidity_str = weather_data.get('shidu', '0').replace('%', '')
+                    humidity = float(humidity_str)
+                    
+                    forecast_today = weather_data.get('forecast')[0]
+                    weather_type = forecast_today.get('type')
+                    
+                    # 估算云量
+                    cloud_cover = 50 # 默认
+                    if '晴' in weather_type: cloud_cover = 0
+                    elif '少云' in weather_type: cloud_cover = 25
+                    elif '多云' in weather_type: cloud_cover = 60
+                    elif '阴' in weather_type: cloud_cover = 90
+                    elif '雨' in weather_type or '雪' in weather_type: cloud_cover = 100
+                    
+                    # 提取风力
+                    wind_str = forecast_today.get('fl', '')
+                    wind_speed = 0
+                    if '3级' in wind_str: wind_speed = 10
+                    elif '4级' in wind_str: wind_speed = 20
+                    elif '5级' in wind_str: wind_speed = 30
+                    
+                    return {
+                        'temperature': current_temp,
+                        'humidity': humidity,
+                        'cloud_cover': cloud_cover,
+                        'wind_speed': wind_speed,
+                        'weather_code': 0,
+                        'source': 'CN (SoJson)'
+                    }
+            return None
+        except Exception as e:
+            print(f"Chinese API failed: {e}")
+            return None
+
+    def _fetch_open_meteo(self):
+        """Open-Meteo备用方案"""
         try:
             url = "https://api.open-meteo.com/v1/forecast"
             params = {
                 "latitude": self.LAT,
                 "longitude": self.LON,
-                "current": "temperature_2m,relative_humidity_2m,cloud_cover,wind_speed_10m,weather_code",
-                "daily": "sunrise,sunset,moon_phase",
+                "current": "temperature_2m,relative_humidity_2m,cloud_cover,wind_speed_10m",
                 "timezone": "Asia/Shanghai"
             }
-            
             response = requests.get(url, params=params, timeout=5)
-            if response.status_code != 200:
-                return None
+            if response.status_code == 200:
+                data = response.json()
+                current = data.get('current', {})
                 
-            data = response.json()
-            current = data.get('current', {})
-            daily = data.get('daily', {})
-            
-            # 解析数据
-            weather_info = {
-                'temperature': current.get('temperature_2m'),
-                'humidity': current.get('relative_humidity_2m'),
-                'cloud_cover': current.get('cloud_cover'), # 云量 0-100
-                'wind_speed': current.get('wind_speed_10m'),
-                'weather_code': current.get('weather_code'),
-                'sunrise': daily.get('sunrise', [])[0] if daily.get('sunrise') else None,
-                'sunset': daily.get('sunset', [])[0] if daily.get('sunset') else None,
-                'moon_phase': daily.get('moon_phase', [])[0] if daily.get('moon_phase') else 0, # 0.00 New Moon, 0.50 Full Moon
-            }
-            
-            # 计算观星指数 (0-100)
-            # 云量是主要因素，月相是次要因素
-            cloud_score = max(0, 100 - weather_info['cloud_cover'])
-            
-            # 月相影响 (满月时光害大，得分低)
-            # moon_phase: 0=新月(好), 0.5=满月(差), 1=新月(好)
-            moon_phase = weather_info['moon_phase']
-            moon_factor = abs(moon_phase - 0.5) * 2 # 0(满月) -> 1(新月)
-            moon_score = moon_factor * 100
-            
-            # 综合评分: 云量占70%, 月相占30%
-            stargazing_score = (cloud_score * 0.7) + (moon_score * 0.3)
-            
-            weather_info['stargazing_score'] = round(stargazing_score)
-            weather_info['condition_text'] = self._get_condition_text(stargazing_score)
-            weather_info['moon_phase_text'] = self._get_moon_phase_text(moon_phase)
-            
-            return weather_info
-            
-        except Exception as e:
-            print(f"Error fetching weather: {e}")
+                weather_info = {
+                    'temperature': current.get('temperature_2m', 0),
+                    'humidity': current.get('relative_humidity_2m', 0),
+                    'cloud_cover': current.get('cloud_cover', 0),
+                    'wind_speed': current.get('wind_speed_10m', 0),
+                    'source': 'Global'
+                }
+                
+                # 补全天文数据
+                astronomy = self._calculate_astronomy()
+                weather_info.update(astronomy)
+                self._calculate_score(weather_info)
+                return weather_info
             return None
+        except:
+            return None
+
+    def _calculate_astronomy(self):
+        """本地计算天文数据"""
+        try:
+            t = Time.now()
+            sun = get_body('sun', t)
+            moon = get_body('moon', t)
+            
+            # 计算月相 (被照亮比例 0.0-1.0)
+            elongation = sun.separation(moon)
+            illumination = (1 - math.cos(elongation.radian)) / 2
+            
+            return {
+                'moon_phase': illumination, # 0=New, 1=Full
+                'moon_phase_text': self._get_moon_phase_text(illumination)
+            }
+        except Exception as e:
+            print(f"Astronomy calc failed: {e}")
+            return {'moon_phase': 0, 'moon_phase_text': '未知'}
+
+    def _calculate_score(self, weather_info):
+        """计算观星指数"""
+        cloud_cover = weather_info['cloud_cover']
+        cloud_score = max(0, 100 - cloud_cover)
+        
+        # 月相影响 (满月1.0时光害大，得分低)
+        moon_phase = weather_info['moon_phase']
+        moon_score = (1 - moon_phase) * 100
+        
+        # 综合评分: 云量占70%, 月相占30%
+        stargazing_score = (cloud_score * 0.7) + (moon_score * 0.3)
+        
+        weather_info['stargazing_score'] = round(stargazing_score)
+        weather_info['condition_text'] = self._get_condition_text(stargazing_score)
 
     def _get_condition_text(self, score):
         if score >= 80: return "极佳"
@@ -71,12 +155,10 @@ class WeatherService:
         if score >= 20: return "较差"
         return "不宜"
 
-    def _get_moon_phase_text(self, phase):
-        if phase < 0.03 or phase > 0.97: return "新月"
-        if phase < 0.25: return "蛾眉月"
-        if phase < 0.27: return "上弦月"
-        if phase < 0.48: return "盈凸月"
-        if phase < 0.52: return "满月"
-        if phase < 0.73: return "亏凸月"
-        if phase < 0.77: return "下弦月"
-        return "残月"
+    def _get_moon_phase_text(self, illumination):
+        # 简单根据照亮比例判断
+        if illumination < 0.1: return "新月/残月"
+        if illumination < 0.4: return "蛾眉月"
+        if illumination < 0.6: return "弦月"
+        if illumination < 0.9: return "凸月"
+        return "满月"
