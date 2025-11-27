@@ -451,6 +451,63 @@
             border-color: var(--lc-primary);
             font-weight: bold;
         }
+
+        /* Collapsible Styles */
+        .collapsible-header {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+        
+        .collapsible-header .toggle-icon {
+            transition: transform 0.3s ease;
+            margin-right: 10px;
+        }
+        
+        .collapsible-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+        
+        .collapsible-content {
+            max-height: 2000px; /* 足够大的高度 */
+            overflow: hidden;
+            transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out, margin 0.5s ease;
+            opacity: 1;
+        }
+        
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+        }
+
+        .point-card .toggle-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .point-card.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .point-card .point-details {
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, margin 0.3s ease;
+            opacity: 1;
+            margin-top: 10px;
+        }
+
+        .point-card.collapsed .point-details {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+        }
+        
+        .point-card.collapsed .best-badge {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -835,6 +892,21 @@
                 `;
                 marker.bindPopup(popupContent);
             });
+        }
+
+        // 切换折叠状态
+        function toggleCollapse(header) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            if (content && content.classList.contains('collapsible-content')) {
+                content.classList.toggle('collapsed');
+            }
+        }
+
+        // 切换观测点卡片折叠状态
+        function togglePointCard(header) {
+            const card = header.parentElement;
+            card.classList.toggle('collapsed');
         }
 
         async function loadWildSpots() {
