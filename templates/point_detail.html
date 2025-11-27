@@ -315,9 +315,9 @@
             
             map = L.map('map-container').setView([point.latitude, point.longitude], 15);
             
-            // 使用 ArcGIS World Street Map (标准彩色地图，WGS84，稳定可靠)
-            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '&copy; Esri',
+            // 使用 OpenStreetMap (最标准的开源地图，WGS84，无偏移)
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 maxZoom: 19
             }).addTo(map);
 
