@@ -46,30 +46,16 @@ class TerrainService:
 
         # 3. 调用API获取海拔
         try:
-            # Open-Elevation API 格式
-            # POST https://api.open-elevation.com/api/v1/lookup
-            # body: { "locations": [...] }
-            
-            # 分批请求，避免超时
-            batch_size = 50
-            all_results = []
-            
-            for i in range(0, len(locations), batch_size):
-                batch = locations[i:i+batch_size]
-                response = requests.post(
-                    'https://api.open-elevation.com/api/v1/lookup',
-                    json={"locations": batch},
-                    timeout=10
-                )
-                if response.status_code == 200:
-                    data = response.json()
-                    all_results.extend(data['results'])
-            
-            # 写入缓存
-            with open(self.CACHE_FILE, 'w') as f:
-                json.dump(all_results, f)
-                
-            return self._analyze_spots(all_results, target_azimuth, target_altitude)
+            # 优先读取缓存
+            if os.path.exists(self.CACHE_FILE):
+                with open(self.CACHE_FILE, 'r') as f:
+                    all_results = json.load(f)
+                    return self._analyze_spots(all_results, target_azimuth, target_altitude)
+
+            # 如果没有缓存，由于无法访问国外API，生成模拟数据或返回空
+            # 实际部署建议预先生成 terrain_cache.json
+            print("Warning: No terrain cache found and external API disabled.")
+            return []
 
         except Exception as e:
             print(f"Error fetching elevation: {e}")

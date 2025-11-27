@@ -20,8 +20,8 @@ class WeatherService:
             weather_info = self._fetch_chinese_weather()
             
             if not weather_info:
-                # 如果国内API失败，尝试Open-Meteo作为备用
-                return self._fetch_open_meteo()
+                # 如果国内API失败，返回None
+                return None
             
             # 2. 计算天文数据 (月相、日出日落)
             astronomy = self._calculate_astronomy()
@@ -83,36 +83,8 @@ class WeatherService:
             return None
 
     def _fetch_open_meteo(self):
-        """Open-Meteo备用方案"""
-        try:
-            url = "https://api.open-meteo.com/v1/forecast"
-            params = {
-                "latitude": self.LAT,
-                "longitude": self.LON,
-                "current": "temperature_2m,relative_humidity_2m,cloud_cover,wind_speed_10m",
-                "timezone": "Asia/Shanghai"
-            }
-            response = requests.get(url, params=params, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                current = data.get('current', {})
-                
-                weather_info = {
-                    'temperature': current.get('temperature_2m', 0),
-                    'humidity': current.get('relative_humidity_2m', 0),
-                    'cloud_cover': current.get('cloud_cover', 0),
-                    'wind_speed': current.get('wind_speed_10m', 0),
-                    'source': 'Global'
-                }
-                
-                # 补全天文数据
-                astronomy = self._calculate_astronomy()
-                weather_info.update(astronomy)
-                self._calculate_score(weather_info)
-                return weather_info
-            return None
-        except:
-            return None
+        """Open-Meteo备用方案 (已移除，仅使用国内源)"""
+        return None
 
     def _calculate_astronomy(self):
         """本地计算天文数据"""
