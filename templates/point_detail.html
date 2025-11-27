@@ -300,9 +300,11 @@
         function updatePointInfo(point) {
             document.getElementById('pointCoords').textContent = `${point.longitude.toFixed(3)}°E, ${point.latitude.toFixed(3)}°N`;
             
-            let diffText = point.difficulty <= 30 ? '简单' : point.difficulty <= 60 ? '中等' : '困难';
-            let diffColor = point.difficulty <= 30 ? '#10b981' : point.difficulty <= 60 ? '#f59e0b' : '#ef4444';
-            document.getElementById('pointDifficulty').innerHTML = `<span style="color: ${diffColor}">${point.difficulty} (${diffText})</span>`;
+            let diffColor = '#10b981';
+            if (point.difficulty === '困难') diffColor = '#ef4444';
+            else if (point.difficulty === '中等') diffColor = '#f59e0b';
+            
+            document.getElementById('pointDifficulty').innerHTML = `<span style="color: ${diffColor}">${point.difficulty}</span>`;
             
             document.getElementById('pointView').textContent = `${point.view_start}° - ${point.view_end}°`;
         }

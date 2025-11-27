@@ -88,11 +88,11 @@ SOLAR_SYSTEM_BODIES = {
 class ObservationPoint:
     """观测点类"""
     
-    def __init__(self, longitude: float, latitude: float, difficulty: int, 
+    def __init__(self, longitude: float, latitude: float, difficulty: str, 
                  view_start: float, view_end: float, name: str):
         self.longitude = longitude
         self.latitude = latitude
-        self.difficulty = difficulty  # 难易到达程度（数值越小越容易）
+        self.difficulty = difficulty  # 难易到达程度（简单/中等/困难）
         self.view_start = view_start  # 视角起始（顺时针，北为0°）
         self.view_end = view_end      # 视角结束（顺时针，北为0°）
         self.name = name
@@ -144,7 +144,7 @@ class StarObservationSelector:
                         point = ObservationPoint(
                             longitude=float(parts[0]),
                             latitude=float(parts[1]),
-                            difficulty=int(parts[2]),
+                            difficulty=parts[2],
                             view_start=float(parts[3]),
                             view_end=float(parts[4]),
                             name=' '.join(parts[5:])  # 名称可能包含空格

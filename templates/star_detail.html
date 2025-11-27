@@ -766,8 +766,9 @@
 
             all_points.forEach((point, index) => {
                 const isBest = index === 0;
-                const difficultyText = point.difficulty <= 30 ? '简单' : point.difficulty <= 60 ? '中等' : '困难';
-                const difficultyIcon = point.difficulty <= 30 ? 'fa-smile' : point.difficulty <= 60 ? 'fa-meh' : 'fa-frown';
+                let difficultyIcon = 'fa-smile';
+                if (point.difficulty === '困难') difficultyIcon = 'fa-frown';
+                else if (point.difficulty === '中等') difficultyIcon = 'fa-meh';
                 
                 const isExpanded = index === 0; // 默认只展开第一个
                 html += `
@@ -789,7 +790,7 @@
                                 <i class="fas fa-map-pin"></i> 纬度: ${point.latitude}°
                             </div>
                             <div class="detail-item">
-                                <i class="fas ${difficultyIcon}"></i> 难易度: ${point.difficulty} (${difficultyText})
+                                <i class="fas ${difficultyIcon}"></i> 难易度: ${point.difficulty}
                             </div>
                             <div class="detail-item">
                                 <i class="fas fa-eye"></i> 可观测: ${point.view_start}° - ${point.view_end}°
@@ -879,8 +880,8 @@
                 });
 
                 let difficultyColor = '#10b981';
-                if (point.difficulty > 60) difficultyColor = '#ef4444';
-                else if (point.difficulty > 30) difficultyColor = '#f59e0b';
+                if (point.difficulty === '困难') difficultyColor = '#ef4444';
+                else if (point.difficulty === '中等') difficultyColor = '#f59e0b';
 
                 const popupContent = `
                     <div style="color: #333;">
