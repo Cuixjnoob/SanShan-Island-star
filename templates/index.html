@@ -448,6 +448,82 @@
             .search-box { flex-direction: column; }
             .time-controls { flex-direction: column; align-items: stretch; }
         }
+
+        /* 折叠功能样式 */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            transition: color 0.2s;
+        }
+
+        .collapsible-header:hover {
+            color: var(--lc-primary);
+        }
+
+        .collapsible-header .toggle-icon {
+            transition: transform 0.3s ease;
+            color: var(--lc-text-sub);
+        }
+
+        .collapsible-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .collapsible-content {
+            max-height: 5000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            opacity: 1;
+        }
+
+        .collapsible-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
+        /* 观测点卡片折叠样式 */
+        .point-card {
+            position: relative;
+        }
+
+        .point-header {
+            cursor: pointer;
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.02);
+            transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .point-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .point-header .toggle-icon {
+            color: var(--lc-text-sub);
+            transition: transform 0.3s ease;
+        }
+
+        .point-card.collapsed .point-header .toggle-icon {
+            transform: rotate(-90deg);
+        }
+
+        .point-card .point-details {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+            opacity: 1;
+        }
+
+        .point-card.collapsed .point-details {
+            max-height: 0;
+            opacity: 0;
+        }
     </style>
 </head>
 <body>
@@ -534,8 +610,11 @@
         </div>
 
         <div class="points-list">
-            <h2><i class="fas fa-location-dot"></i> 观测点列表</h2>
-            <div id="pointsList" class="points-grid"></div>
+            <h2 class="collapsible-header" onclick="toggleCollapse(this)">
+                <i class="fas fa-chevron-down toggle-icon"></i>
+                <span><i class="fas fa-location-dot"></i> 观测点列表</span>
+            </h2>
+            <div id="pointsList" class="points-grid collapsible-content"></div>
         </div>
 
         <footer style="text-align: center; margin-top: 40px; padding: 20px; color: var(--lc-text-sub); border-top: 1px solid var(--lc-border);">
@@ -972,7 +1051,11 @@
                 </div>
 
                 <div class="recommendations">
-                    <h3><i class="fas fa-map-marked-alt"></i> 推荐观测点（共 ${all_points.length} 个）</h3>
+                    <h3 class="collapsible-header" onclick="toggleCollapse(this)">
+                        <i class="fas fa-chevron-down toggle-icon"></i>
+                        <span><i class="fas fa-map-marked-alt"></i> 推荐观测点（共 ${all_points.length} 个）</span>
+                    </h3>
+                    <div class="collapsible-content">
             `;
 
             all_points.forEach((point, index) => {
@@ -980,13 +1063,17 @@
                 const difficultyText = point.difficulty <= 30 ? '简单' : point.difficulty <= 60 ? '中等' : '困难';
                 const difficultyIcon = point.difficulty <= 30 ? 'fa-smile' : point.difficulty <= 60 ? 'fa-meh' : 'fa-frown';
                 
+                const isExpanded = index === 0; // 默认只展开第一个
                 html += `
-                    <div class="point-card ${isBest ? 'best' : ''}">
-                        <div class="point-header">
-                            <div class="point-name">
-                                ${isBest ? '<i class="fas fa-trophy"></i> ' : `${index + 1}. `}${point.name}
+                    <div class="point-card ${isBest ? 'best' : ''} ${isExpanded ? '' : 'collapsed'}">
+                        <div class="point-header" onclick="togglePointCard(this)">
+                            <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                                <div class="point-name">
+                                    ${isBest ? '<i class="fas fa-trophy"></i> ' : `${index + 1}. `}${point.name}
+                                </div>
+                                <div class="point-score"><i class="fas fa-star"></i> 评分: ${point.score.toFixed(1)}</div>
                             </div>
-                            <div class="point-score"><i class="fas fa-star"></i> 评分: ${point.score.toFixed(1)}</div>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
                         </div>
                         <div class="point-details">
                             <div class="detail-item" style="grid-column: 1/-1; background: rgba(88, 101, 242, 0.15); padding: 15px; border-radius: 12px; margin-bottom: 15px; border-left: 3px solid #5865f2;">
@@ -1013,12 +1100,27 @@
                 `;
             });
 
-            html += '</div>';
+            html += '</div></div>'; // 关闭 collapsible-content 和 recommendations
             resultsDiv.innerHTML = html;
         }
 
         let map;
         let wildSpotsLayer = null;
+
+        // 切换折叠状态
+        function toggleCollapse(header) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            if (content && content.classList.contains('collapsible-content')) {
+                content.classList.toggle('collapsed');
+            }
+        }
+
+        // 切换观测点卡片折叠状态
+        function togglePointCard(header) {
+            const card = header.parentElement;
+            card.classList.toggle('collapsed');
+        }
 
         // 初始化地图
         function initMap() {

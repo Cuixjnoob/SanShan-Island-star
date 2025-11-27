@@ -625,6 +625,21 @@
         }
 
         let map;
+
+        // 切换折叠状态
+        function toggleCollapse(header) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            if (content && content.classList.contains('collapsible-content')) {
+                content.classList.toggle('collapsed');
+            }
+        }
+
+        // 切换观测点卡片折叠状态
+        function togglePointCard(header) {
+            const card = header.parentElement;
+            card.classList.toggle('collapsed');
+        }
         let wildSpotsLayer = null;
 
         function displayStarDetail(data) {
@@ -685,7 +700,11 @@
                 </div>
 
                 <div class="recommendations">
-                    <h2><i class="fas fa-list"></i> 推荐观测点列表（共 ${all_points.length} 个）</h2>
+                    <h2 class="collapsible-header" onclick="toggleCollapse(this)">
+                        <i class="fas fa-chevron-down toggle-icon"></i>
+                        <span><i class="fas fa-list"></i> 推荐观测点列表（共 ${all_points.length} 个）</span>
+                    </h2>
+                    <div class="collapsible-content">
             `;
 
             all_points.forEach((point, index) => {
@@ -693,15 +712,19 @@
                 const difficultyText = point.difficulty <= 30 ? '简单' : point.difficulty <= 60 ? '中等' : '困难';
                 const difficultyIcon = point.difficulty <= 30 ? 'fa-smile' : point.difficulty <= 60 ? 'fa-meh' : 'fa-frown';
                 
+                const isExpanded = index === 0; // 默认只展开第一个
                 html += `
-                    <div class="point-card ${isBest ? 'best' : ''}" onclick="window.location.href='/point/${encodeURIComponent(point.name)}'">
-                        <div class="point-header">
-                            <div class="point-name">
-                                ${isBest ? '<i class="fas fa-trophy"></i> ' : `${index + 1}. `}${point.name}
+                    <div class="point-card ${isBest ? 'best' : ''} ${isExpanded ? '' : 'collapsed'}">
+                        <div class="point-header" onclick="event.stopPropagation(); togglePointCard(this);">
+                            <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                                <div class="point-name">
+                                    ${isBest ? '<i class="fas fa-trophy"></i> ' : `${index + 1}. `}${point.name}
+                                </div>
+                                <div class="point-score"><i class="fas fa-star"></i> 评分: ${point.score.toFixed(1)}</div>
                             </div>
-                            <div class="point-score"><i class="fas fa-star"></i> 评分: ${point.score.toFixed(1)}</div>
+                            <i class="fas fa-chevron-down toggle-icon"></i>
                         </div>
-                        <div class="point-details">
+                        <div class="point-details" onclick="event.stopPropagation(); window.location.href='/point/${encodeURIComponent(point.name)}';" style="cursor: pointer;">
                             <div class="detail-item">
                                 <i class="fas fa-map-pin"></i> 经度: ${point.longitude}°
                             </div>
@@ -720,7 +743,7 @@
                 `;
             });
 
-            html += '</div>';
+            html += '</div></div>'; // 关闭 collapsible-content 和 recommendations
             contentDiv.innerHTML = html;
 
             // 初始化 Aladin Lite
