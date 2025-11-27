@@ -909,7 +909,14 @@
                 return;
             }
 
-            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 15px; font-size: 1.3em;"><i class="fas fa-eye"></i> 当前可见天体（共' + stars.length + '个）</h3>';
+            let html = `
+                <h3 class="collapsible-header" onclick="toggleCollapse(this)" style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 15px; font-size: 1.3em;">
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                    <span><i class="fas fa-eye"></i> 当前可见天体（共${stars.length}个）</span>
+                </h3>
+                <div class="collapsible-content visible-stars-grid" style="grid-column: 1/-1; margin-top: 0;">
+            `;
+            
             stars.forEach(star => {
                 const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
                 const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
@@ -938,6 +945,7 @@
                 `;
             });
 
+            html += '</div>';
             visibleStarsDiv.innerHTML = html;
         }
 
@@ -948,7 +956,14 @@
                 return;
             }
             
-            let html = '<h3 style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 10px; font-size: 1.3em;"><i class="fas fa-book"></i> 天体列表（共' + stars.length + '个）</h3>';
+            let html = `
+                <h3 class="collapsible-header" onclick="toggleCollapse(this)" style="grid-column: 1/-1; color: #60a5fa; margin-bottom: 10px; font-size: 1.3em;">
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                    <span><i class="fas fa-book"></i> 天体列表（共${stars.length}个）</span>
+                </h3>
+                <div class="collapsible-content visible-stars-grid" style="grid-column: 1/-1; margin-top: 0;">
+            `;
+            
             stars.forEach(star => {
                 const cardClass = star.type === 'planet' ? 'star-card planet' : 'star-card';
                 const typeIcon = star.type === 'planet' ? '<i class="fas fa-globe"></i>' : '<i class="fas fa-star"></i>';
@@ -963,6 +978,7 @@
                 `;
             });
             
+            html += '</div>';
             visibleStarsDiv.innerHTML = html;
         }
 
