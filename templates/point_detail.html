@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/star-bg.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/red-mode.css') }}">
     <style>
         :root {
             /* LeetCode Dark Theme Inspired Colors */
@@ -221,12 +222,16 @@
                     <div class="info-value" id="pointCoords">-</div>
                 </div>
                 <div class="info-item">
-                    <div class="info-label"><i class="fas fa-hiking"></i> 难易度</div>
+                    <div class="info-label"><i class="fas fa-hiking"></i> 交通难易程度</div>
                     <div class="info-value" id="pointDifficulty">-</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label"><i class="fas fa-eye"></i> 可视范围</div>
                     <div class="info-value" id="pointView">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label"><i class="fas fa-lightbulb"></i> 光污染指数</div>
+                    <div class="info-value" id="pointLightPollution">-</div>
                 </div>
                 <div class="info-item">
                     <div class="info-label"><i class="fas fa-star"></i> 当前可见天体</div>
@@ -307,6 +312,57 @@
             document.getElementById('pointDifficulty').innerHTML = `<span style="color: ${diffColor}">${point.difficulty}</span>`;
             
             document.getElementById('pointView').textContent = `${point.view_start}° - ${point.view_end}°`;
+
+            // 光污染
+            if (point.bortle) {
+                let lpColor = '#10b981';
+                if (point.bortle >= 5) lpColor = '#f59e0b';
+                if (point.bortle >= 7) lpColor = '#ef4444';
+                document.getElementById('pointLightPollution').innerHTML = `<span style="color: ${lpColor}">Bortle ${point.bortle}</span> <span style="font-size: 0.8em; color: #8a8a8a;">(SQM ${point.sqm})</span>`;
+            }
+        }
+
+        // 坐标转换工具函数 (WGS84 -> GCJ02)
+        function wgs84togcj02(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var a = 6378245.0;
+            var ee = 0.00669342162296594323;
+            if (out_of_china(lng, lat)) {
+                return [lat, lng];
+            }
+            var dlat = transformlat(lng - 105.0, lat - 35.0);
+            var dlng = transformlng(lng - 105.0, lat - 35.0);
+            var radlat = lat / 180.0 * PI;
+            var magic = Math.sin(radlat);
+            magic = 1 - ee * magic * magic;
+            var sqrtmagic = Math.sqrt(magic);
+            dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * PI);
+            dlng = (dlng * 180.0) / (a / sqrtmagic * Math.cos(radlat) * PI);
+            var mglat = lat + dlat;
+            var mglng = lng + dlng;
+            return [mglat, mglng];
+        }
+
+        function transformlat(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
+            ret += (20.0 * Math.sin(6.0 * lng * PI) + 20.0 * Math.sin(2.0 * lng * PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(lat * PI) + 40.0 * Math.sin(lat / 3.0 * PI)) * 2.0 / 3.0;
+            ret += (160.0 * Math.sin(lat / 12.0 * PI) + 320 * Math.sin(lat * PI / 30.0)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function transformlng(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
+            ret += (20.0 * Math.sin(6.0 * lng * PI) + 20.0 * Math.sin(2.0 * lng * PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(lng * PI) + 40.0 * Math.sin(lng / 3.0 * PI)) * 2.0 / 3.0;
+            ret += (150.0 * Math.sin(lng / 12.0 * PI) + 300.0 * Math.sin(lng / 30.0 * PI)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function out_of_china(lng, lat) {
+            return (lng < 72.004 || lng > 137.8347) || ((lat < 0.8293 || lat > 55.8271) || false);
         }
 
         let map = null;
@@ -315,15 +371,26 @@
                 map.remove(); // 防止重复初始化
             }
             
-            map = L.map('map-container').setView([point.latitude, point.longitude], 15);
+            // 转换坐标 WGS84 -> GCJ02
+            const gcjPt = wgs84togcj02(point.longitude, point.latitude);
             
-            // 使用 OpenStreetMap (最标准的开源地图，WGS84，无偏移)
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
+            map = L.map('map-container').setView(gcjPt, 15);
+            
+            // 使用高德地图瓦片 (GCJ02坐标系) - 卫星图
+            L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+                attribution: '&copy; 高德地图',
+                maxZoom: 18,
+                minZoom: 10
             }).addTo(map);
 
-            L.marker([point.latitude, point.longitude])
+            // 添加路网标注图层
+            L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+                maxZoom: 18,
+                minZoom: 10,
+                opacity: 0.8
+            }).addTo(map);
+
+            L.marker(gcjPt)
                 .addTo(map)
                 .bindPopup(`<b>${point.name}</b>`)
                 .openPopup();
@@ -356,5 +423,6 @@
         }
     </script>
     <script src="{{ url_for('static', filename='js/star-bg.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/red-mode.js') }}"></script>
 </body>
 </html>

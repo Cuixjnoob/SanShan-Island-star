@@ -128,6 +128,10 @@ class StarObservationSelector:
             lat=self.SANSHAN_ISLAND_LAT * u.deg,
             lon=self.SANSHAN_ISLAND_LON * u.deg
         )
+        # 简单的内存缓存
+        self._visible_stars_cache = {}
+        self._star_info_cache = {}
+        self._cache_ttl = 60  # 缓存有效期60秒
     
     def load_data(self, csv_file: str):
         """从CSV文件加载观测点数据"""
@@ -169,13 +173,25 @@ class StarObservationSelector:
         获取当前可见的所有星星列表
         返回包含星星名称、方位角、高度角等信息的列表
         """
+        # 设置观测时间
+        if obs_time is None:
+            obs_time = datetime.now()
+            
+        # 生成缓存键 (将时间取整到分钟)
+        cache_time_key = obs_time.strftime('%Y-%m-%d %H:%M')
+        cache_key = f"{cache_time_key}_{min_altitude}"
+        
+        # 检查缓存
+        if cache_key in self._visible_stars_cache:
+            return self._visible_stars_cache[cache_key]
+            
+        # 清理旧缓存
+        if len(self._visible_stars_cache) > 60:
+            self._visible_stars_cache.clear()
+
         visible_stars = []
         
         try:
-            # 设置观测时间
-            if obs_time is None:
-                obs_time = datetime.now()
-            
             time = Time(obs_time)
             altaz_frame = AltAz(obstime=time, location=self.location)
             
@@ -232,6 +248,9 @@ class StarObservationSelector:
             # 按高度角排序（从高到低）
             visible_stars.sort(key=lambda x: x['altitude'], reverse=True)
             
+            # 存入缓存
+            self._visible_stars_cache[cache_key] = visible_stars
+            
         except Exception as e:
             # 如果完全失败，返回空列表
             pass
@@ -270,6 +289,17 @@ class StarObservationSelector:
         """获取星星的天文信息"""
         if obs_time is None:
             obs_time = datetime.now()
+            
+        # 缓存检查
+        cache_time_key = obs_time.strftime('%Y-%m-%d %H:%M')
+        cache_key = f"{star_name}_{cache_time_key}"
+        
+        if cache_key in self._star_info_cache:
+            return self._star_info_cache[cache_key]
+            
+        # 清理旧缓存
+        if len(self._star_info_cache) > 100:
+            self._star_info_cache.clear()
         
         try:
             name_cn = star_name  # 默认中文名就是输入名称
@@ -330,6 +360,8 @@ class StarObservationSelector:
                 'equipment': equipment
             }
             
+            # 存入缓存
+            self._star_info_cache[cache_key] = result
             return result
             
         except Exception as e:
@@ -353,18 +385,20 @@ class StarObservationSelector:
         bearing = math.degrees(math.atan2(y, x))
         return (bearing + 360) % 360
 
-    def calculate_score(self, point: ObservationPoint, azimuth: float, altitude: float) -> float:
+    def calculate_score(self, point: ObservationPoint, azimuth: float, altitude: float, weights: Dict[str, float] = None) -> float:
         """
         计算观测点的综合评分
         评分规则：
-        1. 观测点地理位置与星星方位的匹配度（权重40%）
-           - 比如星星在东方，岛屿东侧的观测点得分更高
-        2. 星星在观测点视角范围内的位置（权重40%）
-           - 星星越接近视角中心，得分越高
-        3. 难易程度（权重20%）
-           - 越容易到达得分越高
+        1. 观测点地理位置与星星方位的匹配度
+        2. 星星在观测点视角范围内的位置
+        3. 难易程度
+        4. 光污染 (Bortle/SQM)
         """
-        # 1. 地理位置匹配度分数（0-40分）
+        # 默认权重
+        if weights is None:
+            weights = {'location': 0.3, 'view': 0.3, 'difficulty': 0.2, 'light_pollution': 0.2}
+            
+        # 1. 地理位置匹配度分数（归一化 0-100）
         # 计算观测点相对于中心的方位
         point_azimuth = self._calculate_bearing(self.avg_lat, self.avg_lon, point.latitude, point.longitude)
         
@@ -374,9 +408,9 @@ class StarObservationSelector:
             angle_diff = 360 - angle_diff
         
         # 差异越小分越高
-        location_match_score = max(0, 40 * (1 - angle_diff / 180))
+        norm_location_score = max(0, 100 * (1 - angle_diff / 180))
         
-        # 2. 视角范围位置分数（0-40分）
+        # 2. 视角范围位置分数（归一化 0-100）
         # 计算视角中心
         if point.view_start <= point.view_end:
             view_center = (point.view_start + point.view_end) / 2
@@ -397,38 +431,54 @@ class StarObservationSelector:
         else:
             centrality = 1.0
         
-        view_position_score = centrality * 40
+        norm_view_score = centrality * 100
         
-        # 3. 难易程度分数（0-20分）
-        # difficulty越小越容易。假设difficulty范围0-100
-        # 将文字难度转换为数值进行计算
-        difficulty_val = 50 # 默认中等
+        # 3. 难易程度分数（归一化 0-100）
+        difficulty_val = 20 # 默认中等
         if point.difficulty == '简单':
-            difficulty_val = 20
+            difficulty_val = 10  # 得分 90
         elif point.difficulty == '中等':
-            difficulty_val = 50
+            difficulty_val = 20  # 得分 80
         elif point.difficulty == '困难':
-            difficulty_val = 80
+            difficulty_val = 30  # 得分 70
             
-        difficulty_score = (100 - difficulty_val) * 0.2
+        norm_difficulty_score = (100 - difficulty_val)
+
+        # 4. 光污染分数 (归一化 0-100)
+        # 使用 SQM 值计算，SQM 越高越好 (范围约 18-22)
+        # 假设 SQM 21.5+ 为满分 100, SQM 18.0 为 0 分
+        sqm = getattr(point, 'sqm', 20.45) # 默认值
+        norm_lp_score = max(0, min(100, (sqm - 18.0) / (21.5 - 18.0) * 100))
         
-        # 总分 = 地理位置(40%) + 视角位置(40%) + 难易度(20%)
-        total_score = location_match_score + view_position_score + difficulty_score
+        # 总分 = 加权求和
+        total_score = (norm_location_score * weights.get('location', 0.3) + 
+                      norm_view_score * weights.get('view', 0.3) + 
+                      norm_difficulty_score * weights.get('difficulty', 0.2) +
+                      norm_lp_score * weights.get('light_pollution', 0.2))
         
-        return total_score
+        return {
+            'total': total_score,
+            'details': {
+                'location': norm_location_score,
+                'view': norm_view_score,
+                'difficulty': norm_difficulty_score,
+                'light_pollution': norm_lp_score
+            }
+        }
     
     def rank_points(self, points: List[ObservationPoint], 
-                   azimuth: float, altitude: float) -> List[Tuple[ObservationPoint, float]]:
+                   azimuth: float, altitude: float, weights: Dict[str, float] = None) -> List[Tuple[ObservationPoint, Dict]]:
         """对观测点进行排名"""
         ranked = []
         for point in points:
-            score = self.calculate_score(point, azimuth, altitude)
-            ranked.append((point, score))
+            score_data = self.calculate_score(point, azimuth, altitude, weights)
+            ranked.append((point, score_data))
         
-        ranked.sort(key=lambda x: x[1], reverse=True)
+        # 根据总分排序
+        ranked.sort(key=lambda x: x[1]['total'], reverse=True)
         return ranked
     
-    def recommend_for_star(self, star_name: str, obs_time: datetime = None) -> Optional[Dict]:
+    def recommend_for_star(self, star_name: str, obs_time: datetime = None, weights: Dict[str, float] = None) -> Optional[Dict]:
         """为指定星星推荐最佳观测点"""
         print("\n" + "=" * 80)
         
@@ -453,7 +503,7 @@ class StarObservationSelector:
             return None
         
         # 排名并推荐
-        ranked_points = self.rank_points(suitable_points, azimuth, altitude)
+        ranked_points = self.rank_points(suitable_points, azimuth, altitude, weights)
         
         print(f"\n🌟 观测 '{star_name}' 的推荐观测点（共{len(ranked_points)}个）：")
         print("=" * 80)
@@ -464,7 +514,8 @@ class StarObservationSelector:
         print(f"\n推荐观测点排名:")
         print("-" * 80)
         
-        for idx, (point, score) in enumerate(ranked_points, 1):
+        for idx, (point, score_data) in enumerate(ranked_points, 1):
+            score = score_data['total']
             if idx == 1:
                 print(f"\n🏆 最佳推荐 #{idx} - 综合评分: {score:.1f}")
             else:
@@ -483,7 +534,7 @@ class StarObservationSelector:
         
         print("\n" + "=" * 80)
         
-        best_point, best_score = ranked_points[0]
+        best_point, best_score_data = ranked_points[0]
         return {
             'star_info': star_info,
             'best_point': {
@@ -493,7 +544,8 @@ class StarObservationSelector:
                 'difficulty': best_point.difficulty,
                 'view_start': best_point.view_start,
                 'view_end': best_point.view_end,
-                'score': best_score
+                'score': best_score_data['total'],
+                'score_details': best_score_data['details']
             },
             'all_points': [
                 {
@@ -503,7 +555,8 @@ class StarObservationSelector:
                     'difficulty': p.difficulty,
                     'view_start': p.view_start,
                     'view_end': p.view_end,
-                    'score': s
+                    'score': s['total'],
+                    'score_details': s['details']
                 }
                 for p, s in ranked_points
             ]

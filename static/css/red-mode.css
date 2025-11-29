@@ -1,0 +1,62 @@
+/* 红光模式样式 */
+body.red-mode {
+    --lc-bg: #000000;
+    --lc-card-bg: #000000;
+    --lc-card-hover: #1a0000;
+    --lc-text-main: #ff0000;
+    --lc-text-sub: #cc0000;
+    --lc-primary: #ff0000;
+    --lc-accent: #ff0000;
+    --lc-success: #ff0000;
+    --lc-warning: #ff0000;
+    --lc-danger: #ff0000;
+    --lc-border: #800000;
+    --lc-shadow: none;
+}
+
+body.red-mode img, 
+body.red-mode .leaflet-layer,
+body.red-mode .leaflet-control-attribution {
+    filter: grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%) contrast(1.2) brightness(0.8);
+}
+
+body.red-mode .leaflet-container {
+    background: #000;
+}
+
+body.red-mode .leaflet-popup-content-wrapper,
+body.red-mode .leaflet-popup-tip {
+    background: #000;
+    color: #f00;
+    border: 1px solid #f00;
+}
+
+/* 切换按钮样式 */
+.mode-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    background: var(--lc-card-bg);
+    border: 1px solid var(--lc-border);
+    color: var(--lc-text-main);
+    padding: 10px 15px;
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: var(--lc-shadow);
+    font-weight: 600;
+}
+
+.mode-toggle:hover {
+    background: var(--lc-card-hover);
+}
+
+body.red-mode .mode-toggle {
+    border-color: #ff0000;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.3);
+    background: #000;
+}

@@ -3,11 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>三山岛观星选址系统 - 探索星空之美</title>
+    <title>三山岛观星选址系统-奏鸣星光</title>
+    
+    <!-- 预连接关键域名 -->
+    <link rel="preconnect" href="https://cdn.bootcdn.net">
+    
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.css" />
-    <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.js" defer></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js" defer></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/star-bg.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/red-mode.css') }}">
     <style>
         :root {
             /* LeetCode Dark Theme Inspired Colors */
@@ -72,7 +78,7 @@
         }
 
         .subtitle {
-            font-size: 1em;
+            font-size: 1.5em;
             color: var(--lc-text-sub);
             font-weight: 400;
         }
@@ -524,12 +530,57 @@
             max-height: 0;
             opacity: 0;
         }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            header {
+                padding: 20px 10px;
+            }
+            
+            h1 {
+                font-size: 1.8em;
+            }
+            
+            .subtitle {
+                font-size: 1.2em;
+            }
+            
+            .system-info {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .info-card {
+                padding: 15px;
+            }
+            
+            .info-card .value {
+                font-size: 1.4em;
+            }
+            
+            .search-box {
+                flex-direction: column;
+            }
+            
+            .search-box > * {
+                width: 100%;
+            }
+            
+            .visible-stars-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>✨ 三山岛观星选址系统</h1>
+            <p class="subtitle">奏鸣星光</p>
         </header>
 
         <div class="system-info">
@@ -568,6 +619,56 @@
                 </div>
             </div>
 
+            <!-- AHP Settings Section -->
+            <div class="time-selector" style="margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; cursor: pointer;" onclick="toggleAhpSettings()">
+                    <h3 style="margin: 0; border: none; font-size: 1em;"><i class="fas fa-sliders-h"></i> 个性化权重设置 (AHP)</h3>
+                    <i class="fas fa-chevron-down" id="ahpIcon"></i>
+                </div>
+                
+                <div id="ahpSettings" style="display: none; padding-top: 15px; margin-top: 15px; border-top: 1px solid var(--lc-border);">
+                    <p style="font-size: 0.9em; color: var(--lc-text-sub); margin-bottom: 15px;">
+                        请设定各因素的绝对重要性 (1-9)，系统将自动计算相对权重：
+                    </p>
+                    
+                    <!-- Location Score -->
+                    <div class="ahp-slider-container" style="margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                            <span><i class="fas fa-map-marker-alt"></i> 地理位置匹配度</span>
+                            <span id="score_loc_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                        </div>
+                        <input type="range" id="score_loc" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_loc_val').textContent = this.value">
+                    </div>
+
+                    <!-- View Score -->
+                    <div class="ahp-slider-container" style="margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                            <span><i class="fas fa-eye"></i> 视角范围</span>
+                            <span id="score_view_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                        </div>
+                        <input type="range" id="score_view" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_view_val').textContent = this.value">
+                    </div>
+
+                    <!-- Difficulty Score -->
+                    <div class="ahp-slider-container" style="margin-bottom: 15px;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                            <span><i class="fas fa-hiking"></i> 交通难易程度</span>
+                            <span id="score_diff_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                        </div>
+                        <input type="range" id="score_diff" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_diff_val').textContent = this.value">
+                    </div>
+
+                    <!-- Light Pollution Score -->
+                    <div class="ahp-slider-container">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                            <span><i class="fas fa-lightbulb"></i> 光污染指数</span>
+                            <span id="score_lp_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                        </div>
+                        <input type="range" id="score_lp" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_lp_val').textContent = this.value">
+                    </div>
+                </div>
+            </div>
+
             <div class="search-box">
                 <input type="text" id="searchInput" placeholder="🔍 搜索星星名称（中文/英文）..." autocomplete="off">
                 
@@ -600,6 +701,8 @@
                     <i class="fas fa-spinner fa-spin"></i> 正在获取天气数据...
                 </div>
             </div>
+            <!-- 天气趋势图表 -->
+            <div id="weather-chart" style="width: 100%; height: 300px; margin-top: 20px; display: none;"></div>
         </div>
 
         <div class="hydro-card">
@@ -620,7 +723,29 @@
         <footer style="text-align: center; margin-top: 40px; padding: 20px; color: var(--lc-text-sub); border-top: 1px solid var(--lc-border);">
             <p style="margin-bottom: 10px; font-size: 0.9em;">Presented by</p>
             <p><i class="fas fa-users"></i> 崔行骥 潘彦宏 王晟瑄 严以正 赵泊钧 赵周麟</p>
+            <p style="margin-top: 15px; font-size: 0.8em; cursor: pointer; opacity: 0.7;" onclick="toggleLog()">
+                <i class="fas fa-history"></i> 更新日志
+            </p>
         </footer>
+
+        <!-- Log Modal -->
+        <div id="logModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center;">
+            <div style="background: var(--lc-card-bg); padding: 20px; border-radius: var(--lc-radius); max-width: 500px; width: 90%; position: relative; box-shadow: var(--lc-shadow);">
+                <span onclick="toggleLog()" style="position: absolute; top: 10px; right: 15px; cursor: pointer; font-size: 1.5em; color: var(--lc-text-sub);">&times;</span>
+                <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--lc-border); padding-bottom: 10px;"><i class="fas fa-history"></i> 更新日志</h3>
+                <ul style="list-style: none; padding-left: 0;">
+                    {% if logs %}
+                        {% for log in logs %}
+                        <li style="margin-bottom: 8px; color: var(--lc-text-sub);">
+                            <span style="color: var(--lc-primary); font-weight: bold; margin-right: 10px;">{{ log.date }}</span> {{ log.content }}
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <li style="margin-bottom: 8px; color: var(--lc-text-sub);">暂无更新日志</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -695,6 +820,97 @@
         toolFilter.addEventListener('change', applyFilters);
         searchInput.addEventListener('input', applyFilters);
 
+        // 切换更新日志显示
+        function toggleLog() {
+            const modal = document.getElementById('logModal');
+            if (modal.style.display === 'none' || modal.style.display === '') {
+                modal.style.display = 'flex';
+            } else {
+                modal.style.display = 'none';
+            }
+        }
+
+        // 彩蛋日期配置
+        const memorableDates = {
+            '04-12': { year: 1961, title: '尤里之夜', content: '尤里·加加林成为第一个进入太空的人类！🚀' },
+            '04-24': { year: 1970, title: '中国航天日', content: '中国第一颗人造卫星“东方红一号”发射成功！🛰️' },
+            '07-20': { year: 1969, title: '人类月球日', content: '阿波罗11号成功登月，人类迈出了一大步！🌕' },
+            '10-04': { year: 1957, title: '太空时代开启', content: '第一颗人造卫星斯普特尼克1号发射成功！📡' },
+            '10-15': { year: 2003, title: '中国载人航天', content: '神舟五号发射成功，杨利伟成为中国首位航天员！👨‍🚀' },
+            '12-25': { year: 2021, title: '韦伯望远镜发射', content: '詹姆斯·韦伯太空望远镜发射升空，开启深空探索新纪元！🔭' }
+        };
+
+        function checkEasterEgg(dateStr) {
+            if (!dateStr) return;
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const key = `${month}-${day}`;
+            
+            if (memorableDates[key]) {
+                const info = memorableDates[key];
+                // 只有当年份大于等于事件年份时才触发
+                if (year >= info.year) {
+                    const anniversary = year - info.year;
+                    showEasterEgg(info, anniversary);
+                }
+            }
+        }
+
+        function showEasterEgg(info, anniversary) {
+            // 移除已存在的彩蛋
+            const existing = document.getElementById('easter-egg-modal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'easter-egg-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                animation: fadeIn 0.5s;
+            `;
+            
+            const titleHtml = anniversary > 0 
+                ? `${info.title}<div style="font-size:0.6em; margin-top:5px; color:#ffa116; opacity:0.8;">${anniversary}周年纪念</div>`
+                : info.title;
+
+            modal.innerHTML = `
+                <div style="
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    border: 2px solid #ffa116;
+                    border-radius: 15px;
+                    padding: 30px;
+                    max-width: 400px;
+                    text-align: center;
+                    box-shadow: 0 0 20px rgba(255, 161, 22, 0.3);
+                    transform: scale(0.9);
+                    animation: popIn 0.5s forwards;
+                ">
+                    <div style="font-size: 3em; margin-bottom: 15px;">🎉</div>
+                    <h2 style="color: #ffa116; margin-bottom: 15px; line-height: 1.2;">${titleHtml}</h2>
+                    <p style="color: #eff1f6; line-height: 1.6; margin-bottom: 20px;">${info.year}年的今天，${info.content}</p>
+                    <button onclick="document.getElementById('easter-egg-modal').remove()" class="btn btn-primary" style="width: 100%;">
+                        我知道了
+                    </button>
+                </div>
+                <style>
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+                </style>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
         // 初始化观测时间为当前时间
         function initializeObservationTime() {
             const now = new Date();
@@ -706,6 +922,7 @@
             const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
             observationTimeInput.value = localDateTime;
             updateQueryTimeDisplay();
+            checkEasterEgg(localDateTime);
         }
 
         // 更新查询时间显示
@@ -735,6 +952,7 @@
 
         // 更新星体按钮 - 使用选定的时间刷新可见星体
         updateTimeBtn.addEventListener('click', () => {
+            checkEasterEgg(observationTimeInput.value);
             if (currentMode === 'visible') {
                 loadVisibleStars();
             }
@@ -802,12 +1020,18 @@
 
             let html = '';
             points.forEach(point => {
+                // 光污染颜色
+                let lpColor = '#10b981'; // 绿色 (好)
+                if (point.bortle >= 5) lpColor = '#f59e0b'; // 黄色 (一般)
+                if (point.bortle >= 7) lpColor = '#ef4444'; // 红色 (差)
+
                 html += `
                     <div class="point-item" onclick="window.location.href='/point/${encodeURIComponent(point.name)}'">
                         <h3><i class="fas fa-map-pin"></i> ${point.name}</h3>
                         <p><i class="fas fa-compass"></i> 经度: ${point.longitude.toFixed(3)}°</p>
                         <p><i class="fas fa-compass"></i> 纬度: ${point.latitude.toFixed(3)}°</p>
                         <p><i class="fas fa-hiking"></i> 难度: ${point.difficulty}</p>
+                        <p><i class="fas fa-lightbulb"></i> 光污染: <span style="color: ${lpColor}; font-weight: bold;">Bortle ${point.bortle}</span> (SQM ${point.sqm})</p>
                         <p><i class="fas fa-eye"></i> 视角: ${point.view_start}° - ${point.view_end}°</p>
                     </div>
                 `;
@@ -982,14 +1206,53 @@
             visibleStarsDiv.innerHTML = html;
         }
 
+        // AHP 相关函数
+        function toggleAhpSettings() {
+            const settings = document.getElementById('ahpSettings');
+            const icon = document.getElementById('ahpIcon');
+            if (settings.style.display === 'none') {
+                settings.style.display = 'block';
+                icon.className = 'fas fa-chevron-up';
+            } else {
+                settings.style.display = 'none';
+                icon.className = 'fas fa-chevron-down';
+            }
+        }
+
+        function updateAhpLabel(input, labelId, leftName, rightName) {
+            // 此函数不再使用，保留为空以防报错
+        }
+
         // 选择星星并跳转到详情页面
         async function selectStar(starName) {
             // 获取当前选择的观测时间
             let url = `/star/${encodeURIComponent(starName)}`;
+            const params = new URLSearchParams();
+            
             if (observationTimeInput.value) {
                 const obsTime = new Date(observationTimeInput.value).toISOString();
-                url += `?time=${encodeURIComponent(obsTime)}`;
+                params.append('time', obsTime);
             }
+            
+            // 获取AHP绝对分数并传递
+            const score_loc = document.getElementById('score_loc').value;
+            const score_view = document.getElementById('score_view').value;
+            const score_diff = document.getElementById('score_diff').value;
+            const score_lp = document.getElementById('score_lp').value;
+            
+            // 只有当分数不是默认值(5)时才传递，或者总是传递
+            if (score_loc != 5 || score_view != 5 || score_diff != 5 || score_lp != 5) {
+                params.append('score_loc', score_loc);
+                params.append('score_view', score_view);
+                params.append('score_diff', score_diff);
+                params.append('score_lp', score_lp);
+            }
+            
+            const queryString = params.toString();
+            if (queryString) {
+                url += `?${queryString}`;
+            }
+            
             window.location.href = url;
         }
 
@@ -1107,11 +1370,17 @@
                                 <i class="fas fa-map-pin"></i> 纬度: ${point.latitude}°
                             </div>
                             <div class="detail-item">
-                                <i class="fas ${difficultyIcon}"></i> 难易度: ${point.difficulty}
+                                <i class="fas ${difficultyIcon}"></i> 交通难易程度: ${point.difficulty}
                             </div>
                             <div class="detail-item">
                                 <i class="fas fa-eye"></i> 可观测: ${point.view_start}° - ${point.view_end}°
                             </div>
+                            <div class="detail-item">
+                                <i class="fas fa-lightbulb"></i> 光污染指数: Bortle ${point.bortle || '-'} (SQM ${point.sqm || '-'})
+                            </div>
+                            <button class="btn btn-primary" style="width: 100%; margin-top: 10px; justify-content: center;" onclick="window.location.href='/point/${encodeURIComponent(point.name)}'">
+                                <i class="fas fa-info-circle"></i> 查看观测点详情
+                            </button>
                         </div>
                         ${isBest ? '<div class="best-badge"><i class="fas fa-award"></i> 最佳推荐</div>' : ''}
                     </div>
@@ -1140,17 +1409,70 @@
             card.classList.toggle('collapsed');
         }
 
+        // 坐标转换工具函数 (WGS84 -> GCJ02)
+        function wgs84togcj02(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var a = 6378245.0;
+            var ee = 0.00669342162296594323;
+            if (out_of_china(lng, lat)) {
+                return [lat, lng];
+            }
+            var dlat = transformlat(lng - 105.0, lat - 35.0);
+            var dlng = transformlng(lng - 105.0, lat - 35.0);
+            var radlat = lat / 180.0 * PI;
+            var magic = Math.sin(radlat);
+            magic = 1 - ee * magic * magic;
+            var sqrtmagic = Math.sqrt(magic);
+            dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * PI);
+            dlng = (dlng * 180.0) / (a / sqrtmagic * Math.cos(radlat) * PI);
+            var mglat = lat + dlat;
+            var mglng = lng + dlng;
+            return [mglat, mglng];
+        }
+
+        function transformlat(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
+            ret += (20.0 * Math.sin(6.0 * lng * PI) + 20.0 * Math.sin(2.0 * lng * PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(lat * PI) + 40.0 * Math.sin(lat / 3.0 * PI)) * 2.0 / 3.0;
+            ret += (160.0 * Math.sin(lat / 12.0 * PI) + 320 * Math.sin(lat * PI / 30.0)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function transformlng(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
+            ret += (20.0 * Math.sin(6.0 * lng * PI) + 20.0 * Math.sin(2.0 * lng * PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(lng * PI) + 40.0 * Math.sin(lng / 3.0 * PI)) * 2.0 / 3.0;
+            ret += (150.0 * Math.sin(lng / 12.0 * PI) + 300.0 * Math.sin(lng / 30.0 * PI)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function out_of_china(lng, lat) {
+            return (lng < 72.004 || lng > 137.8347) || ((lat < 0.8293 || lat > 55.8271) || false);
+        }
+
         // 初始化地图
         function initMap() {
-            // 三山岛中心坐标
-            const center = [31.03, 120.29];
-            map = L.map('map-container').setView(center, 14);
+            // 三山岛中心坐标 (WGS84)
+            const centerWGS = [31.03, 120.29];
+            // 转换为 GCJ02
+            const centerGCJ = wgs84togcj02(centerWGS[1], centerWGS[0]);
+            
+            map = L.map('map-container').setView(centerGCJ, 14);
 
-            // 使用深色地图瓦片
-            // 使用 OpenStreetMap (最标准的开源地图，WGS84，无偏移)
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
+            // 使用高德地图瓦片 (GCJ02坐标系) - 卫星图
+            L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+                attribution: '&copy; 高德地图',
+                maxZoom: 18,
+                minZoom: 10
+            }).addTo(map);
+
+            // 添加路网标注图层
+            L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+                maxZoom: 18,
+                minZoom: 10,
+                opacity: 0.8
             }).addTo(map);
 
             // 获取并添加观测点
@@ -1158,7 +1480,9 @@
                 .then(response => response.json())
                 .then(points => {
                     points.forEach(point => {
-                        const marker = L.marker([point.latitude, point.longitude]).addTo(map);
+                        // 转换坐标 WGS84 -> GCJ02
+                        const gcjPt = wgs84togcj02(point.longitude, point.latitude);
+                        const marker = L.marker(gcjPt).addTo(map);
                         
                         // 难度颜色
                         let difficultyColor = '#10b981'; // 简单 - 绿色
@@ -1170,7 +1494,8 @@
                                 <h3 style="margin: 0 0 8px 0; color: #3b82f6;">${point.name}</h3>
                                 <p style="margin: 4px 0;"><strong>经度:</strong> ${point.longitude}</p>
                                 <p style="margin: 4px 0;"><strong>纬度:</strong> ${point.latitude}</p>
-                                <p style="margin: 4px 0;"><strong>难易度:</strong> <span style="color: ${difficultyColor}; font-weight: bold;">${point.difficulty}</span></p>
+                                <p style="margin: 4px 0;"><strong>交通难易程度:</strong> <span style="color: ${difficultyColor}; font-weight: bold;">${point.difficulty}</span></p>
+                                <p style="margin: 4px 0;"><strong>光污染指数:</strong> Bortle ${point.bortle} (SQM ${point.sqm})</p>
                                 <p style="margin: 4px 0;"><strong>视角:</strong> ${point.view_start}° - ${point.view_end}°</p>
                             </div>
                         `;
@@ -1234,6 +1559,103 @@
                         <div class="data">${data.wind_speed} km/h</div>
                     </div>
                 `;
+
+                // 渲染天气趋势图表
+                if (data.forecast && data.forecast.length > 0) {
+                    const chartDom = document.getElementById('weather-chart');
+                    chartDom.style.display = 'block';
+                    const myChart = echarts.init(chartDom);
+                    
+                    const times = data.forecast.map(item => item.time);
+                    const temps = data.forecast.map(item => item.temperature);
+                    const clouds = data.forecast.map(item => item.cloud_cover);
+                    const humidities = data.forecast.map(item => item.humidity);
+
+                    const option = {
+                        backgroundColor: 'transparent',
+                        tooltip: {
+                            trigger: 'axis',
+                            axisPointer: { type: 'cross' },
+                            backgroundColor: 'rgba(50, 50, 50, 0.9)',
+                            borderColor: '#555',
+                            textStyle: { color: '#fff' }
+                        },
+                        legend: {
+                            data: ['气温 (°C)', '云量 (%)', '湿度 (%)'],
+                            textStyle: { color: '#ccc' }
+                        },
+                        grid: {
+                            left: '3%',
+                            right: '4%',
+                            bottom: '3%',
+                            containLabel: true
+                        },
+                        xAxis: {
+                            type: 'category',
+                            boundaryGap: false,
+                            data: times,
+                            axisLine: { lineStyle: { color: '#555' } },
+                            axisLabel: { color: '#aaa' }
+                        },
+                        yAxis: [
+                            {
+                                type: 'value',
+                                name: '气温',
+                                position: 'left',
+                                axisLine: { show: true, lineStyle: { color: '#ffa116' } },
+                                axisLabel: { formatter: '{value} °C', color: '#ffa116' },
+                                splitLine: { lineStyle: { color: '#333' } }
+                            },
+                            {
+                                type: 'value',
+                                name: '百分比',
+                                min: 0,
+                                max: 100,
+                                position: 'right',
+                                axisLine: { show: true, lineStyle: { color: '#aaa' } },
+                                axisLabel: { formatter: '{value} %', color: '#aaa' },
+                                splitLine: { show: false }
+                            }
+                        ],
+                        series: [
+                            {
+                                name: '气温 (°C)',
+                                type: 'line',
+                                yAxisIndex: 0,
+                                data: temps,
+                                smooth: true,
+                                itemStyle: { color: '#ffa116' },
+                                lineStyle: { width: 3 }
+                            },
+                            {
+                                name: '云量 (%)',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: clouds,
+                                smooth: true,
+                                areaStyle: { opacity: 0.2 },
+                                itemStyle: { color: '#0a84ff' },
+                                lineStyle: { width: 2 }
+                            },
+                            {
+                                name: '湿度 (%)',
+                                type: 'line',
+                                yAxisIndex: 1,
+                                data: humidities,
+                                smooth: true,
+                                itemStyle: { color: '#2cbb5d' },
+                                lineStyle: { width: 2, type: 'dashed' }
+                            }
+                        ]
+                    };
+
+                    myChart.setOption(option);
+                    
+                    // 响应窗口大小变化
+                    window.addEventListener('resize', function() {
+                        myChart.resize();
+                    });
+                }
                 
             } catch (error) {
                 console.error('Weather error:', error);
@@ -1248,8 +1670,46 @@
         // 页面加载完成后执行
         document.addEventListener('DOMContentLoaded', () => {
             loadWeather();
+
+            // 加载保存的AHP设置
+            const savedLoc = localStorage.getItem('ahp_score_loc');
+            const savedView = localStorage.getItem('ahp_score_view');
+            const savedDiff = localStorage.getItem('ahp_score_diff');
+            const savedLp = localStorage.getItem('ahp_score_lp');
+            
+            if (savedLoc) {
+                document.getElementById('score_loc').value = savedLoc;
+                document.getElementById('score_loc_val').textContent = savedLoc;
+            }
+            if (savedView) {
+                document.getElementById('score_view').value = savedView;
+                document.getElementById('score_view_val').textContent = savedView;
+            }
+            if (savedDiff) {
+                document.getElementById('score_diff').value = savedDiff;
+                document.getElementById('score_diff_val').textContent = savedDiff;
+            }
+            if (savedLp) {
+                document.getElementById('score_lp').value = savedLp;
+                document.getElementById('score_lp_val').textContent = savedLp;
+            }
+            
+            // 绑定保存事件
+            document.getElementById('score_loc').addEventListener('input', function() {
+                localStorage.setItem('ahp_score_loc', this.value);
+            });
+            document.getElementById('score_view').addEventListener('input', function() {
+                localStorage.setItem('ahp_score_view', this.value);
+            });
+            document.getElementById('score_diff').addEventListener('input', function() {
+                localStorage.setItem('ahp_score_diff', this.value);
+            });
+            document.getElementById('score_lp').addEventListener('input', function() {
+                localStorage.setItem('ahp_score_lp', this.value);
+            });
         });
     </script>
     <script src="{{ url_for('static', filename='js/star-bg.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/red-mode.js') }}"></script>
 </body>
 </html>

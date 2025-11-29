@@ -4,15 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ star_name }} - 观测详情</title>
+    
+    <!-- 预连接关键域名 -->
+    <link rel="preconnect" href="https://cdn.bootcdn.net">
+    <link rel="preconnect" href="https://aladin.u-strasbg.fr">
+    
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.css" />
-    <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/leaflet/1.9.4/leaflet.js" defer></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js" defer></script>
     
     <!-- Aladin Lite & jQuery -->
     <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <link rel="stylesheet" href="https://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.css" />
-    <script type="text/javascript" src="https://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.js" charset="utf-8"></script>
+    <script type="text/javascript" src="https://aladin.u-strasbg.fr/AladinLite/api/v2/latest/aladin.min.js" charset="utf-8" defer></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/star-bg.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/red-mode.css') }}">
     
     <style>
         :root {
@@ -101,6 +108,39 @@
             box-shadow: none;
         }
 
+        /* AHP Sliders */
+        .ahp-slider-container {
+            background: var(--lc-bg);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--lc-border);
+        }
+        
+        .ahp-slider-container input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--lc-border);
+            border-radius: 3px;
+            outline: none;
+            margin-top: 5px;
+        }
+        
+        .ahp-slider-container input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--lc-primary);
+            cursor: pointer;
+            transition: background .15s ease-in-out;
+        }
+        
+        .ahp-slider-container input[type=range]::-webkit-slider-thumb:hover {
+            background: #e59113;
+        }
+
         .btn-secondary {
             background-color: var(--lc-card-bg);
             border: 1px solid var(--lc-border);
@@ -187,7 +227,7 @@
 
         .info-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(6, 1fr);
             gap: 16px;
         }
 
@@ -508,6 +548,55 @@
         .point-card.collapsed .best-badge {
             display: none;
         }
+
+        /* Mobile Optimization */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .star-info h1 {
+                font-size: 1.5em;
+            }
+            
+            .info-grid {
+                grid-template-columns: repeat(2, 1fr) !important; /* Force 2 columns on mobile */
+                gap: 10px;
+            }
+            
+            .info-item {
+                padding: 12px;
+            }
+            
+            .info-value {
+                font-size: 1em;
+            }
+            
+            #aladin-lite-div, #detail-map {
+                height: 300px !important;
+            }
+            
+            .point-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .point-header > div {
+                width: 100%;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            
+            .point-score {
+                margin-top: 5px;
+            }
+            
+            #findWildBtn {
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -532,6 +621,60 @@
             </div>
         </div>
 
+        <!-- AHP Settings Section -->
+        <div class="time-selector" style="margin-top: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0; cursor: pointer;" onclick="toggleAhpSettings()">
+                <h3 style="margin: 0; border: none; font-size: 1em;"><i class="fas fa-sliders-h"></i> 个性化权重设置 (AHP)</h3>
+                <i class="fas fa-chevron-up" id="ahpIcon"></i>
+            </div>
+            
+            <div id="ahpSettings" style="display: block; padding-top: 15px; margin-top: 15px; border-top: 1px solid var(--lc-border);">
+                <p style="font-size: 0.9em; color: var(--lc-text-sub); margin-bottom: 15px;">
+                    请设定各因素的绝对重要性 (1-9)，系统将自动计算相对权重：
+                </p>
+                
+                <!-- Location Score -->
+                <div class="ahp-slider-container" style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                        <span><i class="fas fa-map-marker-alt"></i> 地理位置匹配度</span>
+                        <span id="score_loc_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                    </div>
+                    <input type="range" id="score_loc" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_loc_val').textContent = this.value">
+                </div>
+
+                <!-- View Score -->
+                <div class="ahp-slider-container" style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                        <span><i class="fas fa-eye"></i> 视角范围</span>
+                        <span id="score_view_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                    </div>
+                    <input type="range" id="score_view" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_view_val').textContent = this.value">
+                </div>
+
+                <!-- Difficulty Score -->
+                <div class="ahp-slider-container" style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                        <span><i class="fas fa-hiking"></i> 交通难易程度</span>
+                        <span id="score_diff_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                    </div>
+                    <input type="range" id="score_diff" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_diff_val').textContent = this.value">
+                </div>
+
+                <!-- Light Pollution Score -->
+                <div class="ahp-slider-container" style="margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 5px;">
+                        <span><i class="fas fa-lightbulb"></i> 光污染指数</span>
+                        <span id="score_lp_val" style="color: var(--lc-primary); font-weight: bold;">5</span>
+                    </div>
+                    <input type="range" id="score_lp" min="1" max="9" step="1" value="5" style="width: 100%;" oninput="document.getElementById('score_lp_val').textContent = this.value">
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; margin-top: 10px; justify-content: center;" onclick="updateTime()">
+                    <i class="fas fa-sync-alt"></i> 应用权重并刷新
+                </button>
+            </div>
+        </div>
+
         <div id="content">
             <div class="loading">
                 <div class="compass">✨</div>
@@ -545,6 +688,14 @@
         const contentDiv = document.getElementById('content');
         const timeInput = document.getElementById('observationTime');
         const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+
+        // AHP 相关函数
+        function calculateRatio(scoreA, scoreB) {
+            const diff = scoreA - scoreB;
+            if (diff === 0) return 1;
+            if (diff > 0) return diff + 1;
+            return 1 / (Math.abs(diff) + 1);
+        }
 
         // 页面加载时获取星球详情
         window.addEventListener('load', () => {
@@ -563,6 +714,7 @@
                 const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
                 timeInput.value = localDateTime;
                 updateCurrentTimeDisplay();
+                checkEasterEgg(localDateTime);
             } else {
                 // 设置默认时间为当前时间
                 resetToNow();
@@ -582,6 +734,20 @@
             const localDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
             timeInput.value = localDateTime;
             updateCurrentTimeDisplay();
+        }
+
+        function toggleAhpSettings() {
+            const settings = document.getElementById('ahpSettings');
+            const icon = document.getElementById('ahpIcon');
+            if (settings.style.display === 'none') {
+                settings.style.display = 'block';
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                settings.style.display = 'none';
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
         }
 
         // 更新时间并重新加载
@@ -616,6 +782,34 @@
                 // 获取选中的时间
                 const selectedTime = timeInput.value ? new Date(timeInput.value).toISOString() : new Date().toISOString();
                 
+                // 获取AHP绝对分数
+                let score_loc = 5, score_view = 5, score_diff = 5, score_lp = 5;
+                
+                if (document.getElementById('score_loc')) {
+                    score_loc = parseInt(document.getElementById('score_loc').value);
+                    score_view = parseInt(document.getElementById('score_view').value);
+                    score_diff = parseInt(document.getElementById('score_diff').value);
+                    score_lp = parseInt(document.getElementById('score_lp').value);
+                } else {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    score_loc = parseInt(urlParams.get('score_loc') || '5');
+                    score_view = parseInt(urlParams.get('score_view') || '5');
+                    score_diff = parseInt(urlParams.get('score_diff') || '5');
+                    score_lp = parseInt(urlParams.get('score_lp') || '5');
+                }
+                
+                // 计算相对权重 (Pairwise Comparisons)
+                // 如果 A > B, ratio = (A - B) + 1
+                // 如果 A < B, ratio = 1 / ((B - A) + 1)
+                const ahpPreferences = {
+                    'loc_vs_view': calculateRatio(score_loc, score_view),
+                    'loc_vs_diff': calculateRatio(score_loc, score_diff),
+                    'view_vs_diff': calculateRatio(score_view, score_diff),
+                    'loc_vs_lp': calculateRatio(score_loc, score_lp),
+                    'view_vs_lp': calculateRatio(score_view, score_lp),
+                    'diff_vs_lp': calculateRatio(score_diff, score_lp)
+                };
+                
                 const response = await fetch('/api/search', {
                     method: 'POST',
                     headers: {
@@ -623,7 +817,8 @@
                     },
                     body: JSON.stringify({ 
                         star_name: starName,
-                        obs_time: selectedTime
+                        obs_time: selectedTime,
+                        ahp_preferences: ahpPreferences
                     })
                 });
 
@@ -699,8 +894,20 @@
         }
         let wildSpotsLayer = null;
 
+        function getScoreColor(score) {
+            if (score >= 80) return '#2cbb5d';
+            if (score >= 60) return '#ffa116';
+            return '#ef4743';
+        }
+
+        function getInterferenceColor(val) {
+            if (val < 20) return '#2cbb5d';
+            if (val < 50) return '#ffa116';
+            return '#ef4743';
+        }
+
         function displayStarDetail(data) {
-            const { star_info, best_point, all_points } = data;
+            const { star_info, best_point, all_points, weather_info } = data;
             
             // 保存到全局变量供野外点搜索使用
             window.currentStarInfo = star_info;
@@ -711,7 +918,7 @@
             let html = `
                 <div class="star-info">
                     <h1><i class="fas fa-star"></i> ${star_info.name}</h1>
-                    <div class="info-grid" style="grid-template-columns: repeat(6, 1fr);">
+                    <div class="info-grid">
                         <div class="info-item">
                             <div class="info-label"><i class="fas fa-compass"></i> 观测方向</div>
                             <div class="info-value">${direction}</div>
@@ -739,6 +946,29 @@
                     </div>
                 </div>
 
+                <!-- 天气与月相信息 -->
+                <div class="star-info" style="padding: 20px;">
+                    <h2 style="margin: 0 0 15px 0; font-size: 1.2em; border-bottom: 1px solid var(--lc-border); padding-bottom: 10px;"><i class="fas fa-cloud-moon"></i> 实时观星条件</h2>
+                    <div class="info-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));">
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-thermometer-half"></i> 综合评分</div>
+                            <div class="info-value" style="color: ${getScoreColor(weather_info?.stargazing_score || 0)}">${weather_info?.stargazing_score || '-'} <span style="font-size:0.7em">(${weather_info?.condition_text || '未知'})</span></div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-moon"></i> 月相</div>
+                            <div class="info-value">${weather_info?.moon_phase_text || '-'} <span style="font-size:0.7em">(${(weather_info?.moon_phase * 100).toFixed(0)}%)</span></div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-exclamation-triangle"></i> 月光干扰</div>
+                            <div class="info-value" style="color: ${getInterferenceColor(weather_info?.moon_interference || 0)}">${weather_info?.moon_interference || 0}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label"><i class="fas fa-cloud"></i> 云量</div>
+                            <div class="info-value">${weather_info?.cloud_cover || 0}%</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="star-info" style="padding: 0; overflow: hidden; margin-bottom: 20px;">
                     <div style="padding: 15px; border-bottom: 1px solid var(--lc-border);">
                         <h2 style="margin: 0; font-size: 1.2em; border: none;"><i class="fas fa-star-half-alt"></i> 实时星图</h2>
@@ -747,7 +977,7 @@
                 </div>
 
                 <div class="star-info" style="padding: 0; overflow: hidden;">
-                    <div style="padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--lc-border);">
+                    <div style="padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--lc-border); flex-wrap: wrap; gap: 10px;">
                         <h2 style="margin: 0; font-size: 1.2em; border: none;"><i class="fas fa-map-marked-alt"></i> 观测点分布</h2>
                         <button id="findWildBtn" class="btn btn-primary" onclick="loadWildSpots()">
                             <i class="fas fa-mountain"></i> 寻找适合此星的野外点
@@ -782,7 +1012,7 @@
                             </div>
                             <i class="fas fa-chevron-down toggle-icon"></i>
                         </div>
-                        <div class="point-details" onclick="event.stopPropagation(); window.location.href='/point/${encodeURIComponent(point.name)}';" style="cursor: pointer;">
+                        <div class="point-details" onclick="window.location.href='/point/${encodeURIComponent(point.name)}'" title="点击查看详情">
                             <div class="detail-item">
                                 <i class="fas fa-map-pin"></i> 经度: ${point.longitude}°
                             </div>
@@ -790,11 +1020,17 @@
                                 <i class="fas fa-map-pin"></i> 纬度: ${point.latitude}°
                             </div>
                             <div class="detail-item">
-                                <i class="fas ${difficultyIcon}"></i> 难易度: ${point.difficulty}
+                                <i class="fas ${difficultyIcon}"></i> 交通难易程度: ${point.difficulty}
                             </div>
                             <div class="detail-item">
                                 <i class="fas fa-eye"></i> 可观测: ${point.view_start}° - ${point.view_end}°
                             </div>
+                            <div class="detail-item">
+                                <i class="fas fa-lightbulb"></i> 光污染指数: Bortle ${point.bortle || '-'} (SQM ${point.sqm || '-'})
+                            </div>
+                            
+                            <!-- 雷达图容器 -->
+                            <div id="radar-chart-${index}" style="width: 100%; height: 300px; margin-top: 15px; grid-column: 1 / -1;"></div>
                         </div>
                         ${isBest ? '<div class="best-badge"><i class="fas fa-award"></i> 最佳推荐</div>' : ''}
                     </div>
@@ -840,19 +1076,191 @@
             setTimeout(() => {
                 initDetailMap(all_points);
             }, 100);
+
+            // 初始化所有雷达图
+            setTimeout(() => {
+                all_points.forEach((point, index) => {
+                    initRadarChart(point, index);
+                });
+            }, 200);
+        }
+
+        function initRadarChart(point, index) {
+            const chartDom = document.getElementById(`radar-chart-${index}`);
+            if (!chartDom) return;
+            
+            const myChart = echarts.init(chartDom);
+            
+            // 获取细分得分，如果没有则使用默认值
+            const details = point.score_details || {};
+            const locScore = details.location || 0;
+            const viewScore = details.view || 0;
+            const diffScore = details.difficulty || 0;
+            const lpScore = details.light_pollution || 0;
+            const weatherScore = details.weather || 60; // 默认60分
+
+            const option = {
+                backgroundColor: 'transparent',
+                title: {
+                    text: '多维度分析',
+                    left: 'center',
+                    textStyle: {
+                        color: '#eff1f6',
+                        fontSize: 14
+                    }
+                },
+                tooltip: {
+                    trigger: 'item'
+                },
+                radar: {
+                    indicator: [
+                        { name: '地理位置', max: 100 },
+                        { name: '视野开阔', max: 100 },
+                        { name: '交通便利', max: 100 },
+                        { name: '光污染', max: 100 },
+                        { name: '天气状况', max: 100 }
+                    ],
+                    radius: '65%',
+                    splitNumber: 4,
+                    axisName: {
+                        color: '#8a8a8a',
+                        fontSize: 10
+                    },
+                    splitLine: {
+                        lineStyle: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    splitArea: {
+                        show: false
+                    },
+                    axisLine: {
+                        lineStyle: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                },
+                series: [
+                    {
+                        name: '观测点评分',
+                        type: 'radar',
+                        data: [
+                            {
+                                value: [
+                                    Math.round(locScore),
+                                    Math.round(viewScore),
+                                    Math.round(diffScore),
+                                    Math.round(lpScore),
+                                    Math.round(weatherScore)
+                                ],
+                                name: point.name,
+                                areaStyle: {
+                                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                                        { offset: 0, color: 'rgba(255, 161, 22, 0.5)' },
+                                        { offset: 1, color: 'rgba(255, 161, 22, 0.1)' }
+                                    ])
+                                },
+                                lineStyle: {
+                                    color: '#ffa116'
+                                },
+                                itemStyle: {
+                                    color: '#ffa116'
+                                }
+                            }
+                        ]
+                    }
+                ]
+            };
+
+            myChart.setOption(option);
+            
+            // 监听窗口大小变化
+            window.addEventListener('resize', () => {
+                myChart.resize();
+            });
+            
+            // 监听卡片展开事件，重新调整大小
+            const card = chartDom.closest('.point-card');
+            if (card) {
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                            if (!card.classList.contains('collapsed')) {
+                                setTimeout(() => myChart.resize(), 100);
+                            }
+                        }
+                    });
+                });
+                observer.observe(card, { attributes: true });
+            }
+        }
+
+        // 坐标转换工具函数 (WGS84 -> GCJ02)
+        function wgs84togcj02(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var a = 6378245.0;
+            var ee = 0.00669342162296594323;
+            if (out_of_china(lng, lat)) {
+                return [lat, lng];
+            }
+            var dlat = transformlat(lng - 105.0, lat - 35.0);
+            var dlng = transformlng(lng - 105.0, lat - 35.0);
+            var radlat = lat / 180.0 * PI;
+            var magic = Math.sin(radlat);
+            magic = 1 - ee * magic * magic;
+            var sqrtmagic = Math.sqrt(magic);
+            dlat = (dlat * 180.0) / ((a * (1 - ee)) / (magic * sqrtmagic) * PI);
+            dlng = (dlng * 180.0) / (a / sqrtmagic * Math.cos(radlat) * PI);
+            var mglat = lat + dlat;
+            var mglng = lng + dlng;
+            return [mglat, mglng];
+        }
+
+        function transformlat(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
+            ret += (20.0 * Math.sin(6.0 * lng * PI) + 20.0 * Math.sin(2.0 * lng * PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(lat * PI) + 40.0 * Math.sin(lat / 3.0 * PI)) * 2.0 / 3.0;
+            ret += (160.0 * Math.sin(lat / 12.0 * PI) + 320 * Math.sin(lat * PI / 30.0)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function transformlng(lng, lat) {
+            var PI = 3.1415926535897932384626;
+            var ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
+            ret += (20.0 * Math.sin(6.0 * lng * PI) + 20.0 * Math.sin(2.0 * lng * PI)) * 2.0 / 3.0;
+            ret += (20.0 * Math.sin(lng * PI) + 40.0 * Math.sin(lng / 3.0 * PI)) * 2.0 / 3.0;
+            ret += (150.0 * Math.sin(lng / 12.0 * PI) + 300.0 * Math.sin(lng / 30.0 * PI)) * 2.0 / 3.0;
+            return ret;
+        }
+
+        function out_of_china(lng, lat) {
+            return (lng < 72.004 || lng > 137.8347) || ((lat < 0.8293 || lat > 55.8271) || false);
         }
 
         function initDetailMap(points) {
-            const center = [31.03, 120.29];
+            // 三山岛中心坐标 (WGS84)
+            const centerWGS = [31.03, 120.29];
+            // 转换为 GCJ02
+            const centerGCJ = wgs84togcj02(centerWGS[1], centerWGS[0]);
+
             if (map) {
                 map.remove();
             }
-            map = L.map('detail-map').setView(center, 14);
+            map = L.map('detail-map').setView(centerGCJ, 14);
 
-            // 使用 OpenStreetMap (最标准的开源地图，WGS84，无偏移)
-            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
+            // 使用高德地图瓦片 (GCJ02坐标系) - 卫星图
+            L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', {
+                attribution: '&copy; 高德地图',
+                maxZoom: 18,
+                minZoom: 10
+            }).addTo(map);
+
+            // 添加路网标注图层
+            L.tileLayer('https://webst02.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}', {
+                maxZoom: 18,
+                minZoom: 10,
+                opacity: 0.8
             }).addTo(map);
 
             points.forEach((point, index) => {
@@ -862,7 +1270,10 @@
                 const markerColor = isBest ? '#ffc01e' : '#3b82f6'; 
                 const radius = isBest ? 10 : 6;
 
-                const marker = L.circleMarker([point.latitude, point.longitude], {
+                // 转换坐标 WGS84 -> GCJ02
+                const gcjPt = wgs84togcj02(point.longitude, point.latitude);
+
+                const marker = L.circleMarker(gcjPt, {
                     radius: radius,
                     fillColor: markerColor,
                     color: '#fff',
@@ -887,7 +1298,8 @@
                     <div style="color: #333;">
                         <h3 style="margin: 0 0 5px 0; color: ${markerColor};">${isBest ? '<i class="fas fa-trophy"></i> ' : ''}${point.name}</h3>
                         <p style="margin: 0;">评分: <strong>${point.score.toFixed(1)}</strong></p>
-                        <p style="margin: 0;">难度: <span style="color: ${difficultyColor}">${point.difficulty}</span></p>
+                        <p style="margin: 0;">交通难易程度: <span style="color: ${difficultyColor}">${point.difficulty}</span></p>
+                        <p style="margin: 0;">光污染指数: Bortle ${point.bortle || '-'} (SQM ${point.sqm || '-'})</p>
                         ${isBest ? '<p style="margin: 5px 0 0 0; color: #d97706; font-weight: bold;">★ 最佳推荐点</p>' : ''}
                     </div>
                 `;
@@ -947,7 +1359,10 @@
                 wildSpotsLayer = L.layerGroup();
 
                 spots.forEach(spot => {
-                    const marker = L.circleMarker([spot.latitude, spot.longitude], {
+                    // 转换坐标 WGS84 -> GCJ02
+                    const gcjPt = wgs84togcj02(spot.longitude, spot.latitude);
+
+                    const marker = L.circleMarker(gcjPt, {
                         radius: 8,
                         fillColor: "#ffa116",
                         color: "#fff",
@@ -986,5 +1401,6 @@
         }
     </script>
     <script src="{{ url_for('static', filename='js/star-bg.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/red-mode.js') }}"></script>
 </body>
 </html>
